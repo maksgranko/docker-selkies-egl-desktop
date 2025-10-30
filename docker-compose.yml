@@ -59,7 +59,6 @@ services:
       #    - SELKIES_BASIC_AUTH_PASSWORD=mypasswd
       # Enable HTTPS web interface from inside the container
       - SELKIES_ENABLE_HTTPS=false
-      # TURN server configuration removed - using internal TURN server
     # Volume mount trusted HTTPS certificate to new path for no web browser warnings
 #    - SELKIES_HTTPS_CERT=/etc/ssl/certs/ssl-cert-snakeoil.pem
 #    - SELKIES_HTTPS_KEY=/etc/ssl/private/ssl-cert-snakeoil.key
