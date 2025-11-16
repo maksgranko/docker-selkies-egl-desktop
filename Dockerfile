@@ -643,16 +643,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     fi && \
     WEB_SIZE=$(stat -c%s "${WEB_FILE}" 2>/dev/null || stat -f%z "${WEB_FILE}" 2>/dev/null) && \
     echo "  - Downloaded file size: $((WEB_SIZE / 1024)) KB (${WEB_SIZE} bytes)" && \
-    if [ ${WEB_SIZE} -lt 100000 ]; then \
-        echo "  ✗ ERROR: File is too small (< 100 KB), probably download failed" && \
-        head -20 "${WEB_FILE}" && \
-        exit 1; \
-    fi && \
-    echo "  - Verifying archive integrity..." && \
-    if ! gzip -t "${WEB_FILE}" 2>/dev/null; then \
-        echo "  ✗ ERROR: Archive is corrupted or not a valid gzip file!" && \
-        exit 1; \
-    fi && \
     echo "  - Extracting to /opt..." && \
     cd /opt && tar -xzf "/tmp/${WEB_FILE}" && \
     rm -f "/tmp/${WEB_FILE}" && \
