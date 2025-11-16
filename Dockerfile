@@ -646,7 +646,11 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     echo "  - Extracting to /opt..." && \
     cd /opt && tar -xzf "/tmp/${WEB_FILE}" && \
     rm -f "/tmp/${WEB_FILE}" && \
-    echo "  ✓ Web interface extracted to /opt" && \
+    if [ -d "/opt/gst-web-react" ] && [ ! -d "/opt/gst-web" ]; then \
+        echo "  - Renaming gst-web-react to gst-web..." && \
+        mv /opt/gst-web-react /opt/gst-web; \
+    fi && \
+    echo "  ✓ Web interface extracted to /opt/gst-web" && \
     # Step 4: Download and install Selkies JS Interposer (using Ubuntu 22.04 version for compatibility with 24.04)
     echo "[4/4] Downloading and installing Selkies JS Interposer..." && \
     JS_UBUNTU_VERSION="${UBUNTU_VERSION}" && \
