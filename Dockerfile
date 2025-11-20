@@ -511,6 +511,7 @@ RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
     chmod -f 755 /usr/bin/winetricks && \
     curl -o /usr/share/bash-completion/completions/winetricks -fsSL "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks.bash-completion"; fi
 
+ARG CACHE_BREAKER=default
 # Install latest Selkies (https://github.com/selkies-project/selkies) build, Python application, and web application, should be consistent with Selkies documentation
 ARG PIP_BREAK_SYSTEM_PACKAGES=1
 RUN apt-get update && apt-get install --no-install-recommends -y \
