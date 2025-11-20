@@ -438,11 +438,11 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
         xdg-utils \
         firefox \
         transmission-qt && \
-    apt-get install --install-recommends -y \
-        libreoffice \
-        libreoffice-kf5 \
-        libreoffice-plasma \
-        libreoffice-style-breeze && \
+    # apt-get install --install-recommends -y \
+    #     libreoffice \
+    #     libreoffice-kf5 \
+    #     libreoffice-plasma \
+    #     libreoffice-style-breeze && \
     # Ensure Firefox as the default web browser
     xdg-settings set default-web-browser firefox.desktop && \
     update-alternatives --set x-www-browser /usr/bin/firefox && \
