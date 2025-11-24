@@ -66,108 +66,119 @@ echo 'Waiting for X Socket' && until [ -S "/tmp/.X11-unix/X${DISPLAY#*:}" ]; do 
 
 # Configure NGINX
 if [ "$(echo ${SELKIES_ENABLE_BASIC_AUTH} | tr '[:upper:]' '[:lower:]')" != "false" ]; then htpasswd -bcm "${XDG_RUNTIME_DIR}/.htpasswd" "${SELKIES_BASIC_AUTH_USER:-${USER}}" "${SELKIES_BASIC_AUTH_PASSWORD:-${PASSWD}}"; fi
-echo "# Selkies NGINX Configuration
-server {
-    access_log /dev/stdout;
-    error_log /dev/stderr;
-    listen ${NGINX_PORT:-8080} $(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "ssl"; fi);
-    listen [::]:${NGINX_PORT:-8080} $(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "ssl"; fi);
-    ssl_certificate ${SELKIES_HTTPS_CERT-/etc/ssl/certs/ssl-cert-snakeoil.pem};
-    ssl_certificate_key ${SELKIES_HTTPS_KEY-/etc/ssl/private/ssl-cert-snakeoil.key};
-    $(if [ \"$(echo ${SELKIES_ENABLE_BASIC_AUTH} | tr '[:upper:]' '[:lower:]')\" != \"false\" ]; then echo "auth_basic \"Selkies\";"; echo -n "    auth_basic_user_file ${XDG_RUNTIME_DIR}/.htpasswd;"; fi)
+# echo "# Selkies NGINX Configuration
+# server {
+#     access_log /dev/stdout;
+#     error_log /dev/stderr;
+#     listen ${NGINX_PORT:-8080} $(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "ssl"; fi);
+#     listen [::]:${NGINX_PORT:-8080} $(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "ssl"; fi);
+#     ssl_certificate ${SELKIES_HTTPS_CERT-/etc/ssl/certs/ssl-cert-snakeoil.pem};
+#     ssl_certificate_key ${SELKIES_HTTPS_KEY-/etc/ssl/private/ssl-cert-snakeoil.key};
+#     $(if [ \"$(echo ${SELKIES_ENABLE_BASIC_AUTH} | tr '[:upper:]' '[:lower:]')\" != \"false\" ]; then echo "auth_basic \"Selkies\";"; echo -n "    auth_basic_user_file ${XDG_RUNTIME_DIR}/.htpasswd;"; fi)
 
-    location / {
-        root /opt/gst-web/;
-        index  index.html index.htm;
-    }
+#     # CORS headers for dev/proxy scenarios
+#     add_header Access-Control-Allow-Origin "*" always;
+#     add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE" always;
+#     add_header Access-Control-Allow-Headers "*,x-auth-user,authorization,content-type" always;
+#     add_header Access-Control-Max-Age 86400 always;
+#     if ($request_method = OPTIONS) {
+#         add_header Content-Length 0;
+#         add_header Content-Type text/plain;
+#         return 204;
+#     }
 
-    location /health {
-        proxy_http_version      1.1;
-        proxy_read_timeout      3600s;
-        proxy_send_timeout      3600s;
-        proxy_connect_timeout   3600s;
-        proxy_buffering         off;
+#     location / {
+#         root /opt/gst-web/;
+#         index  index.html index.htm;
+#     }
 
-        client_max_body_size    10M;
+#     location /health {
+#         proxy_http_version      1.1;
+#         proxy_read_timeout      3600s;
+#         proxy_send_timeout      3600s;
+#         proxy_connect_timeout   3600s;
+#         proxy_buffering         off;
 
-        proxy_pass http$(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "s"; fi)://localhost:${SELKIES_PORT:-8081};
-    }
+#         client_max_body_size    10M;
 
-    location /ws {
-        proxy_set_header        Upgrade \$http_upgrade;
-        proxy_set_header        Connection \"upgrade\";
+#         proxy_pass http$(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "s"; fi)://localhost:${SELKIES_PORT:-8081};
+#     }
 
-        proxy_set_header        Host \$host;
-        proxy_set_header        X-Real-IP \$remote_addr;
-        proxy_set_header        X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header        X-Forwarded-Proto \$scheme;
+#     location /ws {
+#         proxy_set_header        Upgrade \$http_upgrade;
+#         proxy_set_header        Connection \"upgrade\";
 
-        proxy_http_version      1.1;
-        proxy_read_timeout      3600s;
-        proxy_send_timeout      3600s;
-        proxy_connect_timeout   3600s;
-        proxy_buffering         off;
+#         proxy_set_header        Host \$host;
+#         proxy_set_header        X-Real-IP \$remote_addr;
+#         proxy_set_header        X-Forwarded-For \$proxy_add_x_forwarded_for;
+#         proxy_set_header        X-Forwarded-Proto \$scheme;
 
-        client_max_body_size    10M;
+#         proxy_http_version      1.1;
+#         proxy_read_timeout      3600s;
+#         proxy_send_timeout      3600s;
+#         proxy_connect_timeout   3600s;
+#         proxy_buffering         off;
 
-        proxy_pass http$(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "s"; fi)://localhost:${SELKIES_PORT:-8081};
-    }
-    location /turn {
-        proxy_http_version      1.1;
-        proxy_read_timeout      3600s;
-        proxy_send_timeout      3600s;
-        proxy_connect_timeout   3600s;
-        proxy_buffering         off;
+#         client_max_body_size    10M;
 
-        client_max_body_size    10M;
+#         proxy_pass http$(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "s"; fi)://localhost:${SELKIES_PORT:-8081};
+#     }
+#     location /turn {
+#         proxy_http_version      1.1;
+#         proxy_read_timeout      3600s;
+#         proxy_send_timeout      3600s;
+#         proxy_connect_timeout   3600s;
+#         proxy_buffering         off;
 
-        proxy_pass http$(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "s"; fi)://localhost:${SELKIES_PORT:-8081};
-    }
-    location /webrtc/signalling {
-        proxy_set_header        Upgrade \$http_upgrade;
-        proxy_set_header        Connection \"upgrade\";
+#         client_max_body_size    10M;
 
-        proxy_set_header        Host \$host;
-        proxy_set_header        X-Real-IP \$remote_addr;
-        proxy_set_header        X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header        X-Forwarded-Proto \$scheme;
+#         proxy_pass http$(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "s"; fi)://localhost:${SELKIES_PORT:-8081};
+#     }
+#     location /webrtc/signalling {
+#         proxy_set_header        Upgrade \$http_upgrade;
+#         proxy_set_header        Connection \"upgrade\";
 
-        proxy_http_version      1.1;
-        proxy_read_timeout      3600s;
-        proxy_send_timeout      3600s;
-        proxy_connect_timeout   3600s;
-        proxy_buffering         off;
+#         proxy_set_header        Host \$host;
+#         proxy_set_header        X-Real-IP \$remote_addr;
+#         proxy_set_header        X-Forwarded-For \$proxy_add_x_forwarded_for;
+#         proxy_set_header        X-Forwarded-Proto \$scheme;
 
-        client_max_body_size    10M;
+#         proxy_http_version      1.1;
+#         proxy_read_timeout      3600s;
+#         proxy_send_timeout      3600s;
+#         proxy_connect_timeout   3600s;
+#         proxy_buffering         off;
 
-        proxy_pass http$(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "s"; fi)://localhost:${SELKIES_PORT:-8081};
-    }
+#         client_max_body_size    10M;
 
-    location /metrics {
-        proxy_http_version      1.1;
-        proxy_read_timeout      3600s;
-        proxy_send_timeout      3600s;
-        proxy_connect_timeout   3600s;
-        proxy_buffering         off;
+#         proxy_pass http$(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "s"; fi)://localhost:${SELKIES_PORT:-8081};
+#     }
 
-        client_max_body_size    10M;
+#     location /metrics {
+#         proxy_http_version      1.1;
+#         proxy_read_timeout      3600s;
+#         proxy_send_timeout      3600s;
+#         proxy_connect_timeout   3600s;
+#         proxy_buffering         off;
 
-        proxy_pass http$(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "s"; fi)://localhost:${SELKIES_METRICS_HTTP_PORT:-9081};
-    }
+#         client_max_body_size    10M;
 
-    error_page 500 502 503 504 /50x.html;
-    location = /50x.html {
-        root /opt/gst-web/;
-    }
-}" | tee /etc/nginx/sites-available/default > /dev/null
+#         proxy_pass http$(if [ \"$(echo ${SELKIES_ENABLE_HTTPS} | tr '[:upper:]' '[:lower:]')\" = \"true\" ]; then echo -n "s"; fi)://localhost:${SELKIES_METRICS_HTTP_PORT:-9081};
+#     }
+
+#     error_page 500 502 503 504 /50x.html;
+#     location = /50x.html {
+#         root /opt/gst-web/;
+#     }
+# }" | tee /etc/nginx/sites-available/default > /dev/null
 
 # Clear the cache registry
 rm -rf "${HOME}/.cache/gstreamer-1.0"
 
 # Start the Selkies WebRTC HTML5 remote desktop application
 selkies-gstreamer \
-    --addr="localhost" \
-    --port="${SELKIES_PORT:-8081}" \
+    --addr="0.0.0.0" \
+    --port="${SELKIES_PORT:-8080}" \
     --enable_basic_auth="false" \
     --enable_metrics_http="true" \
     --metrics_http_port="${SELKIES_METRICS_HTTP_PORT:-9081}" \
