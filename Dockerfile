@@ -46,6 +46,7 @@ RUN apt-get clean && apt-get update && apt-get dist-upgrade -y && apt-get instal
 ENV LANG="en_US.UTF-8"
 ENV LANGUAGE="en_US:en"
 ENV LC_ALL="en_US.UTF-8"
+ENV CURL_RETRY_OPTS="--retry 5 --retry-delay 3 --retry-connrefused"
 
 USER 1000
 # Use BUILDAH_FORMAT=docker in buildah
@@ -174,7 +175,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     sed -i -e 's/\/var\/log\/nginx\/access\.log/\/dev\/stdout/g' -e 's/\/var\/log\/nginx\/error\.log/\/dev\/stderr/g' -e 's/\/run\/nginx\.pid/\/tmp\/nginx\.pid/g' /etc/nginx/nginx.conf && \
     echo "error_log /dev/stderr;" >> /etc/nginx/nginx.conf && \
     # PipeWire and WirePlumber
-    mkdir -pm755 /etc/apt/trusted.gpg.d && curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xFC43B7352BCC0EC8AF2EEB8B25088A0359807596" | gpg --dearmor -o /etc/apt/trusted.gpg.d/pipewire-debian-ubuntu-pipewire-upstream.gpg && \
+    mkdir -pm755 /etc/apt/trusted.gpg.d && curl -fsSL ${CURL_RETRY_OPTS} "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xFC43B7352BCC0EC8AF2EEB8B25088A0359807596" | gpg --dearmor -o /etc/apt/trusted.gpg.d/pipewire-debian-ubuntu-pipewire-upstream.gpg && \
     mkdir -pm755 /etc/apt/sources.list.d && echo "deb https://ppa.launchpadcontent.net/pipewire-debian/pipewire-upstream/ubuntu $(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"') main" > "/etc/apt/sources.list.d/pipewire-debian-ubuntu-pipewire-upstream-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').list" && \
     mkdir -pm755 /etc/apt/sources.list.d && echo "deb https://ppa.launchpadcontent.net/pipewire-debian/wireplumber-upstream/ubuntu $(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"') main" > "/etc/apt/sources.list.d/pipewire-debian-ubuntu-wireplumber-upstream-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').list" && \
     apt-get update && apt-get install --no-install-recommends -y \
@@ -238,8 +239,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libva-dev \
         libegl-dev \
         libgstreamer-plugins-bad1.0-dev && \
-    NVIDIA_VAAPI_DRIVER_VERSION="$(curl -fsSL "https://api.github.com/repos/elFarto/nvidia-vaapi-driver/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
-    cd /tmp && curl -fsSL "https://github.com/elFarto/nvidia-vaapi-driver/archive/v${NVIDIA_VAAPI_DRIVER_VERSION}.tar.gz" | tar -xzf - && mv -f nvidia-vaapi-driver* nvidia-vaapi-driver && cd nvidia-vaapi-driver && meson setup build && meson install -C build && rm -rf /tmp/*; fi && \
+    NVIDIA_VAAPI_DRIVER_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/elFarto/nvidia-vaapi-driver/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
+    cd /tmp && curl -fsSL ${CURL_RETRY_OPTS} "https://github.com/elFarto/nvidia-vaapi-driver/archive/v${NVIDIA_VAAPI_DRIVER_VERSION}.tar.gz" | tar -xzf - && mv -f nvidia-vaapi-driver* nvidia-vaapi-driver && cd nvidia-vaapi-driver && meson setup build && meson install -C build && rm -rf /tmp/*; fi && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
     echo "/usr/local/nvidia/lib" >> /etc/ld.so.conf.d/nvidia.conf && \
     echo "/usr/local/nvidia/lib64" >> /etc/ld.so.conf.d/nvidia.conf && \
@@ -293,18 +294,18 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*
 
 # Install VirtualGL and make libraries available for preload
-RUN cd /tmp && VIRTUALGL_VERSION="$(curl -fsSL "https://api.github.com/repos/VirtualGL/virtualgl/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
+RUN cd /tmp && VIRTUALGL_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/VirtualGL/virtualgl/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
     if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
     dpkg --add-architecture i386 && \
-    curl -fsSL -O "https://github.com/VirtualGL/virtualgl/releases/download/${VIRTUALGL_VERSION}/virtualgl_${VIRTUALGL_VERSION}_amd64.deb" && \
-    curl -fsSL -O "https://github.com/VirtualGL/virtualgl/releases/download/${VIRTUALGL_VERSION}/virtualgl32_${VIRTUALGL_VERSION}_amd64.deb" && \
+    curl -fsSL ${CURL_RETRY_OPTS} -O "https://github.com/VirtualGL/virtualgl/releases/download/${VIRTUALGL_VERSION}/virtualgl_${VIRTUALGL_VERSION}_amd64.deb" && \
+    curl -fsSL ${CURL_RETRY_OPTS} -O "https://github.com/VirtualGL/virtualgl/releases/download/${VIRTUALGL_VERSION}/virtualgl32_${VIRTUALGL_VERSION}_amd64.deb" && \
     apt-get update && apt-get install -y --no-install-recommends "./virtualgl_${VIRTUALGL_VERSION}_amd64.deb" "./virtualgl32_${VIRTUALGL_VERSION}_amd64.deb" && \
     rm -f "virtualgl_${VIRTUALGL_VERSION}_amd64.deb" "virtualgl32_${VIRTUALGL_VERSION}_amd64.deb" && \
     chmod -f u+s /usr/lib/libvglfaker.so /usr/lib/libvglfaker-nodl.so /usr/lib/libvglfaker-opencl.so /usr/lib/libdlfaker.so /usr/lib/libgefaker.so && \
     chmod -f u+s /usr/lib32/libvglfaker.so /usr/lib32/libvglfaker-nodl.so /usr/lib32/libvglfaker-opencl.so /usr/lib32/libdlfaker.so /usr/lib32/libgefaker.so && \
     chmod -f u+s /usr/lib/i386-linux-gnu/libvglfaker.so /usr/lib/i386-linux-gnu/libvglfaker-nodl.so /usr/lib/i386-linux-gnu/libvglfaker-opencl.so /usr/lib/i386-linux-gnu/libdlfaker.so /usr/lib/i386-linux-gnu/libgefaker.so; \
     elif [ "$(dpkg --print-architecture)" = "arm64" ]; then \
-    curl -fsSL -O "https://github.com/VirtualGL/virtualgl/releases/download/${VIRTUALGL_VERSION}/virtualgl_${VIRTUALGL_VERSION}_arm64.deb" && \
+    curl -fsSL ${CURL_RETRY_OPTS} -O "https://github.com/VirtualGL/virtualgl/releases/download/${VIRTUALGL_VERSION}/virtualgl_${VIRTUALGL_VERSION}_arm64.deb" && \
     apt-get update && apt-get install -y --no-install-recommends ./virtualgl_${VIRTUALGL_VERSION}_arm64.deb && \
     rm -f "virtualgl_${VIRTUALGL_VERSION}_arm64.deb" && \
     chmod -f u+s /usr/lib/libvglfaker.so /usr/lib/libvglfaker-nodl.so /usr/lib/libdlfaker.so /usr/lib/libgefaker.so; fi && \
@@ -316,7 +317,7 @@ RUN cd /tmp && VIRTUALGL_VERSION="$(curl -fsSL "https://api.github.com/repos/Vir
 RUN mkdir -pm755 /etc/apt/preferences.d && echo "Package: firefox*\n\
 Pin: version 1:1snap*\n\
 Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
-    mkdir -pm755 /etc/apt/trusted.gpg.d && curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x738BEB9321D1AAEC13EA9391AEBDF4819BE21867" | gpg --dearmor -o /etc/apt/trusted.gpg.d/mozillateam-ubuntu-ppa.gpg && \
+    mkdir -pm755 /etc/apt/trusted.gpg.d && curl -fsSL ${CURL_RETRY_OPTS} "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x738BEB9321D1AAEC13EA9391AEBDF4819BE21867" | gpg --dearmor -o /etc/apt/trusted.gpg.d/mozillateam-ubuntu-ppa.gpg && \
     mkdir -pm755 /etc/apt/sources.list.d && echo "deb https://ppa.launchpadcontent.net/mozillateam/ppa/ubuntu $(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"') main" > "/etc/apt/sources.list.d/mozillateam-ubuntu-ppa-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').list" && \
     apt-get update && apt-get install --no-install-recommends -y \
         kde-baseapps \
@@ -447,7 +448,7 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
     xdg-settings set default-web-browser firefox.desktop && \
     update-alternatives --set x-www-browser /usr/bin/firefox && \
     # Install Google Chrome for supported architectures
-    if [ "$(dpkg --print-architecture)" = "amd64" ]; then cd /tmp && curl -o google-chrome-stable.deb -fsSL "https://dl.google.com/linux/direct/google-chrome-stable_current_$(dpkg --print-architecture).deb" && apt-get update && apt-get install --no-install-recommends -y ./google-chrome-stable.deb && rm -f google-chrome-stable.deb && sed -i '/^Exec=/ s/$/ --password-store=basic --in-process-gpu/' /usr/share/applications/google-chrome.desktop; fi && \
+    if [ "$(dpkg --print-architecture)" = "amd64" ]; then cd /tmp && curl ${CURL_RETRY_OPTS} -o google-chrome-stable.deb -fsSL "https://dl.google.com/linux/direct/google-chrome-stable_current_$(dpkg --print-architecture).deb" && apt-get update && apt-get install --no-install-recommends -y ./google-chrome-stable.deb && rm -f google-chrome-stable.deb && sed -i '/^Exec=/ s/$/ --password-store=basic --in-process-gpu/' /usr/share/applications/google-chrome.desktop; fi && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
     # Fix KDE startup permissions issues in containers
     MULTI_ARCH=$(dpkg --print-architecture | sed -e 's/arm64/aarch64-linux-gnu/' -e 's/armhf/arm-linux-gnueabihf/' -e 's/riscv64/riscv64-linux-gnu/' -e 's/ppc64el/powerpc64le-linux-gnu/' -e 's/s390x/s390x-linux-gnu/' -e 's/i.*86/i386-linux-gnu/' -e 's/amd64/x86_64-linux-gnu/' -e 's/unknown/x86_64-linux-gnu/') && \
@@ -495,21 +496,21 @@ ENV XMODIFIERS="@im=fcitx"
 # Wine, Winetricks, and launchers, this process must be consistent with https://wiki.winehq.org/Ubuntu
 ARG WINE_BRANCH=staging
 RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
-    mkdir -pm755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/winehq-archive.key "https://dl.winehq.org/wine-builds/winehq.key" && \
-    curl -fsSL -o "/etc/apt/sources.list.d/winehq-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').sources" "https://dl.winehq.org/wine-builds/ubuntu/dists/$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"')/winehq-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').sources" && \
+    mkdir -pm755 /etc/apt/keyrings && curl -fsSL ${CURL_RETRY_OPTS} -o /etc/apt/keyrings/winehq-archive.key "https://dl.winehq.org/wine-builds/winehq.key" && \
+    curl -fsSL ${CURL_RETRY_OPTS} -o "/etc/apt/sources.list.d/winehq-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').sources" "https://dl.winehq.org/wine-builds/ubuntu/dists/$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"')/winehq-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').sources" && \
     apt-get update && apt-get install --install-recommends -y \
         winehq-${WINE_BRANCH} && \
     apt-get install --no-install-recommends -y \
         q4wine \
         playonlinux && \
-    LUTRIS_VERSION="$(curl -fsSL "https://api.github.com/repos/lutris/lutris/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
-    cd /tmp && curl -o lutris.deb -fsSL "https://github.com/lutris/lutris/releases/download/v${LUTRIS_VERSION}/lutris_${LUTRIS_VERSION}_all.deb" && apt-get install --no-install-recommends -y ./lutris.deb && rm -f lutris.deb && \
-    HEROIC_VERSION="$(curl -fsSL "https://api.github.com/repos/Heroic-Games-Launcher/HeroicGamesLauncher/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
-    cd /tmp && curl -o heroic_launcher.deb -fsSL "https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/v${HEROIC_VERSION}/Heroic-${HEROIC_VERSION}-linux-$(dpkg --print-architecture).deb" && apt-get install --no-install-recommends -y ./heroic_launcher.deb && rm -f heroic_launcher.deb && \
+    LUTRIS_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/lutris/lutris/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
+    cd /tmp && curl -o lutris.deb -fsSL ${CURL_RETRY_OPTS} "https://github.com/lutris/lutris/releases/download/v${LUTRIS_VERSION}/lutris_${LUTRIS_VERSION}_all.deb" && apt-get install --no-install-recommends -y ./lutris.deb && rm -f lutris.deb && \
+    HEROIC_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/Heroic-Games-Launcher/HeroicGamesLauncher/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
+    cd /tmp && curl -o heroic_launcher.deb -fsSL ${CURL_RETRY_OPTS} "https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/v${HEROIC_VERSION}/Heroic-${HEROIC_VERSION}-linux-$(dpkg --print-architecture).deb" && apt-get install --no-install-recommends -y ./heroic_launcher.deb && rm -f heroic_launcher.deb && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
-    curl -o /usr/bin/winetricks -fsSL "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks" && \
+    curl -o /usr/bin/winetricks -fsSL ${CURL_RETRY_OPTS} "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks" && \
     chmod -f 755 /usr/bin/winetricks && \
-    curl -o /usr/share/bash-completion/completions/winetricks -fsSL "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks.bash-completion"; fi
+    curl -o /usr/share/bash-completion/completions/winetricks -fsSL ${CURL_RETRY_OPTS} "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks.bash-completion"; fi
 
 ARG CACHE_BREAKER=default
 # Install latest Selkies (https://github.com/selkies-project/selkies) build, Python application, and web application, should be consistent with Selkies documentation
@@ -563,7 +564,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 
 RUN     echo "======================================== " && \
         echo "Fetching latest Selkies version from CDN..." && \
-        SELKIES_VERSION="$(curl -fsSL "https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/latest" | jq -r '.tag_name')" && \
+        SELKIES_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/latest" | jq -r '.tag_name')" && \
         if [ -z "${SELKIES_VERSION}" ] || [ "${SELKIES_VERSION}" = "null" ]; then \
             echo "✗ ERROR: Failed to fetch Selkies version from CDN" && \
             echo "  Please check: https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/latest" && \
@@ -584,7 +585,7 @@ RUN     echo "======================================== " && \
         echo "  - URL: ${CDN_BASE_URL}/${GSTREAMER_FILE}" && \
         cd /tmp && \
         echo "  - Downloading file (this may take a while)..." && \
-        curl -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
+        curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
             -o "${GSTREAMER_FILE}" "${CDN_BASE_URL}/${GSTREAMER_FILE}" && \
         if [ ! -f "${GSTREAMER_FILE}" ]; then \
             echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
@@ -614,7 +615,7 @@ RUN     echo "======================================== " && \
         echo "  - URL: ${CDN_BASE_URL}/${WHL_FILE}" && \
         cd /tmp && \
         echo "  - Downloading file..." && \
-        curl -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
+        curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
             -o "${WHL_FILE}" "${CDN_BASE_URL}/${WHL_FILE}" && \
         if [ ! -f "${WHL_FILE}" ]; then \
             echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
@@ -637,7 +638,7 @@ RUN     echo "======================================== " && \
         echo "  - URL: ${CDN_BASE_URL}/${WEB_FILE}" && \
         cd /tmp && \
         echo "  - Downloading file..." && \
-        curl -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
+        curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
             -o "${WEB_FILE}" "${CDN_BASE_URL}/${WEB_FILE}" && \
         if [ ! -f "${WEB_FILE}" ]; then \
             echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
@@ -664,7 +665,7 @@ RUN     echo "======================================== " && \
         echo "  - URL: ${CDN_BASE_URL}/${JS_FILE}" && \
         cd /tmp && \
         echo "  - Downloading file..." && \
-        curl -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
+        curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
             -o selkies-js-interposer.deb "${CDN_BASE_URL}/${JS_FILE}" && \
         if [ ! -f selkies-js-interposer.deb ]; then \
             echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
@@ -687,10 +688,10 @@ RUN     echo "======================================== " && \
 
 #
 # Install KasmVNC web interface; RustDesk removed
-RUN KASMVNC_VERSION="$(curl -fsSL "https://api.github.com/repos/kasmtech/KasmVNC/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
-    cd /tmp && curl -o kasmvncserver.deb -fsSL "https://github.com/kasmtech/KasmVNC/releases/download/v${KASMVNC_VERSION}/kasmvncserver_$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"')_${KASMVNC_VERSION}_$(dpkg --print-architecture).deb" && apt-get update && apt-get install --no-install-recommends -y ./kasmvncserver.deb libdatetime-perl && rm -f kasmvncserver.deb && \
-    YQ_VERSION="$(curl -fsSL "https://api.github.com/repos/mikefarah/yq/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
-    cd /tmp && curl -o yq -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_$(dpkg --print-architecture)" && install ./yq /usr/bin/ && rm -f yq && \
+RUN KASMVNC_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/kasmtech/KasmVNC/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
+    cd /tmp && curl -o kasmvncserver.deb -fsSL ${CURL_RETRY_OPTS} "https://github.com/kasmtech/KasmVNC/releases/download/v${KASMVNC_VERSION}/kasmvncserver_$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"')_${KASMVNC_VERSION}_$(dpkg --print-architecture).deb" && apt-get update && apt-get install --no-install-recommends -y ./kasmvncserver.deb libdatetime-perl && rm -f kasmvncserver.deb && \
+    YQ_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/mikefarah/yq/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
+    cd /tmp && curl -o yq -fsSL ${CURL_RETRY_OPTS} "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_$(dpkg --print-architecture)" && install ./yq /usr/bin/ && rm -f yq && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*
 
 # Copy scripts and configurations used to start the container with `--chown=1000:1000`
