@@ -686,6 +686,20 @@ RUN     echo "======================================== " && \
         echo "======================================== " && \
         apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*
 
+# Copy and extract Warplay driver from host
+COPY ../warplay-driver-linux-catalog/built/warplay-driver-*.tar.gz /tmp/warplay-driver.tar.gz
+RUN if [ ! -f /tmp/warplay-driver.tar.gz ]; then \
+        echo "ERROR: Warplay driver archive not found!" && \
+        echo "  Expected file: warplay-driver-*.tar.gz in ../warplay-driver-linux-catalog/built/" && \
+        echo "  Please ensure the archive exists before building the image." && \
+        exit 1; \
+    fi && \
+    mkdir -pm755 /opt/wpcdrv && \
+    cd /opt/wpcdrv && \
+    tar -xzf /tmp/warplay-driver.tar.gz && \
+    rm -f /tmp/warplay-driver.tar.gz && \
+    chown -R 1000:1000 /opt/wpcdrv
+
 #
 # Install KasmVNC web interface; RustDesk removed
 RUN KASMVNC_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/kasmtech/KasmVNC/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
