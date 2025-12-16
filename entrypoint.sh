@@ -8,14 +8,21 @@ set -e
 
 trap "echo TRAPed signal" HUP INT QUIT TERM
 
+# Startup mode:
+# - primary: start our own Xvfb/KDE (default)
+# - secondary: use host X (expect DISPLAY mounted/available), don't start Xvfb here
+export MODE="${MODE:-primary}"
+
 # Wait for XDG_RUNTIME_DIR
 until [ -d "${XDG_RUNTIME_DIR}" ]; do sleep 0.5; done
 # Make user directory owned by the default user
 chown -f "$(id -nu):$(id -ng)" ~ || sudo-root chown -f "$(id -nu):$(id -ng)" ~ || chown -R -f -h --no-preserve-root "$(id -nu):$(id -ng)" ~ || sudo-root chown -R -f -h --no-preserve-root "$(id -nu):$(id -ng)" ~ || echo 'Failed to change user directory permissions, there may be permission issues'
 # Change operating system password to environment variable
 (echo "${PASSWD}"; echo "${PASSWD}";) | sudo passwd "$(id -nu)" || (echo "mypasswd"; echo "${PASSWD}"; echo "${PASSWD}";) | passwd "$(id -nu)" || echo 'Password change failed, using default password'
-# Remove directories to make sure the desktop environment starts
-rm -rf /tmp/.X* ~/.cache || echo 'Failed to clean X11 paths'
+# Remove directories to make sure the desktop environment starts (skip for host-X mode)
+if [ "${MODE}" != "secondary" ]; then
+  rm -rf /tmp/.X* ~/.cache || echo 'Failed to clean X11 paths'
+fi
 # Change time zone from environment variable
 ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime && echo "${TZ}" | tee /etc/timezone > /dev/null || echo 'Failed to set timezone'
 # Add Lutris directories to path
@@ -39,6 +46,20 @@ export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
 export PIPEWIRE_RUNTIME_DIR="${PIPEWIRE_RUNTIME_DIR:-${XDG_RUNTIME_DIR:-/tmp}}"
 export PULSE_RUNTIME_PATH="${PULSE_RUNTIME_PATH:-${XDG_RUNTIME_DIR:-/tmp}/pulse}"
 export PULSE_SERVER="${PULSE_SERVER:-unix:${PULSE_RUNTIME_PATH:-${XDG_RUNTIME_DIR:-/tmp}/pulse}/native}"
+
+# Run user init scripts (~ /init.d/*.sh) on container startup
+# This is meant for "doinstall" without docker exec after recreation.
+if [ "${INITD_SKIP:-false}" != "true" ] && [ -d "${HOME}/init.d" ]; then
+  for f in "${HOME}/init.d/"*.sh; do
+    [ -e "$f" ] || continue
+    echo "Running init script: $f"
+    if [ "${INITD_TRACE:-false}" = "true" ]; then
+      bash -x "$f"
+    else
+      bash "$f"
+    fi
+  done
+fi
 
 if [ -z "$(ldconfig -N -v $(sed 's/:/ /g' <<< $LD_LIBRARY_PATH) 2>/dev/null | grep 'libEGL_nvidia.so.0')" ] || [ -z "$(ldconfig -N -v $(sed 's/:/ /g' <<< $LD_LIBRARY_PATH) 2>/dev/null | grep 'libGLX_nvidia.so.0')" ]; then
   # Install NVIDIA userspace driver components including X graphic libraries, keep contents same between docker-selkies-glx-desktop and docker-selkies-egl-desktop
@@ -82,13 +103,17 @@ if [ -z "$(ldconfig -N -v $(sed 's/:/ /g' <<< $LD_LIBRARY_PATH) 2>/dev/null | gr
 fi
 
 # Run Xvfb server with required extensions
-/usr/bin/Xvfb "${DISPLAY}" -screen 0 "8192x4096x${DISPLAY_CDEPTH}" -dpi "${DISPLAY_DPI}" +extension "COMPOSITE" +extension "DAMAGE" +extension "GLX" +extension "RANDR" +extension "RENDER" +extension "MIT-SHM" +extension "XFIXES" +extension "XTEST" +iglx +render -nolisten "tcp" -ac -noreset -shmem &
+if [ "${MODE}" != "secondary" ]; then
+  /usr/bin/Xvfb "${DISPLAY}" -screen 0 "8192x4096x${DISPLAY_CDEPTH}" -dpi "${DISPLAY_DPI}" +extension "COMPOSITE" +extension "DAMAGE" +extension "GLX" +extension "RANDR" +extension "RENDER" +extension "MIT-SHM" +extension "XFIXES" +extension "XTEST" +iglx +render -nolisten "tcp" -ac -noreset -shmem &
+fi
 
 # Wait for X server to start
 echo 'Waiting for X Socket' && until [ -S "/tmp/.X11-unix/X${DISPLAY#*:}" ]; do sleep 0.5; done && echo 'X Server is ready'
 
 # Resize the screen to the provided size
-/usr/local/bin/selkies-gstreamer-resize "${DISPLAY_SIZEW}x${DISPLAY_SIZEH}"
+if [ "${MODE}" != "secondary" ]; then
+  /usr/local/bin/selkies-gstreamer-resize "${DISPLAY_SIZEW}x${DISPLAY_SIZEH}"
+fi
 
 # Use VirtualGL to run the KDE desktop environment with OpenGL if the GPU is available, otherwise use OpenGL with llvmpipe
 export XDG_SESSION_ID="${DISPLAY#*:}"
@@ -105,5 +130,9 @@ fi
 
 # Add custom processes right below this line, or within `supervisord.conf` to perform service management similar to systemd
 
+# Start Steam if marker file exists
+if [ -e "/opt/startup/steam-native" ]; then
+    steam &
+fi
 echo "Session Running. Press [Return] to exit."
 read

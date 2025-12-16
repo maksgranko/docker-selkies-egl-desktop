@@ -512,6 +512,49 @@ RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
     chmod -f 755 /usr/bin/winetricks && \
     curl -o /usr/share/bash-completion/completions/winetricks -fsSL ${CURL_RETRY_OPTS} "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks.bash-completion"; fi
 
+
+# Steam (install as root during build; runs as non-root user at runtime)
+# Optional: install pkexec via policykit-1 by setting --build-arg INSTALL_POLKIT=true
+ARG INSTALL_POLKIT=false
+RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+    dpkg --add-architecture i386 && \
+    apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        python3-protobuf \
+        xdg-desktop-portal \
+        xdg-desktop-portal-kde \
+        curl \
+        udev \
+        pciutils \
+        libcanberra-gtk-module \
+        libgl1 \
+        libgl1:i386 \
+        libudev1:i386 \
+        libcap2:i386 && \
+    # Recommended for controller rules (udev) and desktop integration
+    (apt-get update && apt-get install -y --no-install-recommends steam-devices) || true && \
+    if [ "$(echo ${INSTALL_POLKIT} | tr '[:upper:]' '[:lower:]')" = "true" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends policykit-1; \
+    fi && \
+    cd /tmp && curl -fsSL ${CURL_RETRY_OPTS} -o steam_latest.deb "https://repo.steampowered.com/steam/archive/stable/steam_latest.deb" && \
+    apt-get update && apt-get install -y ./steam_latest.deb && \
+    # Ensure the launcher package is present (some distros treat the .deb as a repo bootstrapper)
+    (apt-get update && apt-get install -y --no-install-recommends steam-launcher) || true && \
+    # Hard check: fail the build if steam isn't available after install
+    command -v steam >/dev/null 2>&1 && \
+    rm -f /tmp/steam_latest.deb && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*; \
+fi
+
+# pkexec permissions (run outside INSTALL_POLKIT block; safe if pkexec is absent)
+RUN if [ -x /usr/bin/pkexec ]; then \
+        ls -l /usr/bin/pkexec && \
+        chmod u+s /usr/bin/pkexec || true; \
+    else \
+        echo "pkexec not present (policykit-1 not installed)"; \
+    fi
+
+
 # Install latest Selkies (https://github.com/selkies-project/selkies) build, Python application, and web application, should be consistent with Selkies documentation
 ARG PIP_BREAK_SYSTEM_PACKAGES=1
 RUN apt-get update && apt-get install --no-install-recommends -y \
@@ -740,7 +783,9 @@ USER 0
 # Enable sudo through sudo-root with uid 0
 RUN if [ -d "/usr/libexec/sudo" ]; then SUDO_LIB="/usr/libexec/sudo"; else SUDO_LIB="/usr/lib/sudo"; fi && \
     chown -R -f -h --no-preserve-root root:root /usr/bin/sudo-root /etc/sudo.conf /etc/sudoers /etc/sudoers.d /etc/sudo_logsrvd.conf "${SUDO_LIB}" || echo 'Failed to provide root permissions in some paths relevant to sudo' && \
-    chmod -f 4755 /usr/bin/sudo-root || echo 'Failed to set chmod setuid for root'
+    chmod -f 4755 /usr/bin/sudo-root || echo 'Failed to set chmod setuid for root' && \
+    (id -u steam >/dev/null 2>&1 || useradd -m -s /bin/bash steam) && \
+    usermod -a -G audio,video,render,input,plugdev steam || echo 'Failed to update steam user groups'
 USER 1000
 
 ENV PIPEWIRE_LATENCY="128/48000"
