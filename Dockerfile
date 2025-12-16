@@ -512,7 +512,6 @@ RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
     chmod -f 755 /usr/bin/winetricks && \
     curl -o /usr/share/bash-completion/completions/winetricks -fsSL ${CURL_RETRY_OPTS} "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks.bash-completion"; fi
 
-ARG CACHE_BREAKER=default
 # Install latest Selkies (https://github.com/selkies-project/selkies) build, Python application, and web application, should be consistent with Selkies documentation
 ARG PIP_BREAK_SYSTEM_PACKAGES=1
 RUN apt-get update && apt-get install --no-install-recommends -y \
@@ -561,6 +560,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libxtst6 \
         libxext6 && \
         if [ "$(grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '\"')" \> "20.04" ]; then apt-get install --no-install-recommends -y xcvt libopenh264-dev svt-av1 aom-tools; else apt-get install --no-install-recommends -y mesa-utils-extra; fi  # Install Selkies components from CDN (cdn.warplay.cloud)
+
+ARG CACHE_BREAKER=default
 
 RUN     echo "======================================== " && \
         echo "Fetching latest Selkies version from CDN..." && \
@@ -686,19 +687,34 @@ RUN     echo "======================================== " && \
         echo "======================================== " && \
         apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*
 
-# Copy and extract Warplay driver from host
-COPY ../warplay-driver-linux-catalog/built/warplay-driver-*.tar.gz /tmp/warplay-driver.tar.gz
-RUN if [ ! -f /tmp/warplay-driver.tar.gz ]; then \
-        echo "ERROR: Warplay driver archive not found!" && \
-        echo "  Expected file: warplay-driver-*.tar.gz in ../warplay-driver-linux-catalog/built/" && \
-        echo "  Please ensure the archive exists before building the image." && \
-        exit 1; \
-    fi && \
-    mkdir -pm755 /opt/wpcdrv && \
-    cd /opt/wpcdrv && \
-    tar -xzf /tmp/warplay-driver.tar.gz && \
-    rm -f /tmp/warplay-driver.tar.gz && \
-    chown -R 1000:1000 /opt/wpcdrv
+# Copy and extract Warplay driver from host (optional)
+# Place wp_drivers_v*.tar.gz file in install_to_docker/ directory before building
+# Directory structure:
+#   docker-selkies-egl-desktop/
+#     ├── Dockerfile
+#     └── install_to_docker/wp_drivers_v*.tar.gz
+# If file is not found, this step will be skipped (driver is optional)
+ARG INCLUDE_WARPLAY_DRIVER=true
+RUN mkdir -pm755 /opt/wpcdrv
+COPY install_to_docker/wp_drivers_v*.tar.gz /tmp/
+RUN if [ "$INCLUDE_WARPLAY_DRIVER" = "true" ]; then \
+        DRIVER_FILE=$(ls /tmp/wp_drivers_v*.tar.gz 2>/dev/null | head -n 1) && \
+        if [ -n "$DRIVER_FILE" ] && [ -f "$DRIVER_FILE" ]; then \
+            echo "Installing Warplay driver from $DRIVER_FILE..." && \
+            cd /opt/wpcdrv && \
+            tar -xzf "$DRIVER_FILE" && \
+            rm -f /tmp/wp_drivers_v*.tar.gz && \
+            chown -R 1000:1000 /opt/wpcdrv && \
+            echo "Warplay driver installed successfully"; \
+        else \
+            echo "Warning: Warplay driver archive not found in install_to_docker/ directory." && \
+            echo "  Place wp_drivers_v*.tar.gz file in install_to_docker/ before building." && \
+            echo "  Or disable this step: docker build --build-arg INCLUDE_WARPLAY_DRIVER=false ." && \
+            echo "  Expected: install_to_docker/wp_drivers_v*.tar.gz"; \
+        fi; \
+    else \
+        echo "Skipping Warplay driver installation (INCLUDE_WARPLAY_DRIVER=false)"; \
+    fi
 
 #
 # Install KasmVNC web interface; RustDesk removed
