@@ -702,7 +702,7 @@ RUN if [ "$INCLUDE_WARPLAY_DRIVER" = "true" ]; then \
         if [ -n "$DRIVER_FILE" ] && [ -f "$DRIVER_FILE" ]; then \
             echo "Installing Warplay driver from $DRIVER_FILE..." && \
             cd /opt/wpcdrv && \
-            tar -xzf "$DRIVER_FILE" && \
+            tar -xzf "$DRIVER_FILE" -C /opt/wpcdrv && \
             rm -f /tmp/wp_drivers_v*.tar.gz && \
             chown -R 1000:1000 /opt/wpcdrv && \
             echo "Warplay driver installed successfully"; \
