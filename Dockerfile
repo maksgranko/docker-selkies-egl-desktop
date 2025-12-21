@@ -776,6 +776,8 @@ COPY --chown=1000:1000 kasmvnc-entrypoint.sh /etc/kasmvnc-entrypoint.sh
 RUN chmod -f 755 /etc/kasmvnc-entrypoint.sh
 COPY --chown=1000:1000 supervisord.conf /etc/supervisord.conf
 RUN chmod -f 755 /etc/supervisord.conf
+# Copy wp-helpers directory to /opt/wp-helpers
+COPY --chown=1000:1000 wp-helpers /opt/wp-helpers
 
 SHELL ["/bin/sh", "-c"]
 
