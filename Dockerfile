@@ -636,7 +636,9 @@ RUN     echo "======================================== " && \
         if [ "${USE_LOCAL}" = "true" ]; then \
             SELKIES_VERSION="" && \
             if [ -n "${LOCAL_WHL_FILE}" ]; then \
-                SELKIES_VERSION="$(basename "${LOCAL_WHL_FILE}" | sed -e 's/^selkies_gstreamer-//' -e 's/-py3-none-any\\.whl$//')"; \
+                SELKIES_VERSION="$(basename "${LOCAL_WHL_FILE}")"; \
+                SELKIES_VERSION="${SELKIES_VERSION#selkies_gstreamer-}"; \
+                SELKIES_VERSION="${SELKIES_VERSION%-py3-none-any.whl}"; \
             elif [ -n "${LOCAL_WEB_FILE}" ]; then \
                 SELKIES_VERSION="$(basename "${LOCAL_WEB_FILE}" | sed -e 's/^selkies-gstreamer-web_v//' -e 's/\\.tar\\.gz$//')"; \
             elif [ -n "${LOCAL_JS_DEB_FILE}" ]; then \
