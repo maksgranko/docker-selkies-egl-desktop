@@ -724,7 +724,8 @@ RUN     --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker
             echo "  - Installing package..." && \
             apt-get update && apt-get install --no-install-recommends -y "${JS_DEB}" && \
             echo "  ✓ JS Interposer installed" && \
-            apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
+            apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /var/tmp/* && \
+            find /tmp -mindepth 1 -maxdepth 1 -not -name install_to_docker -exec rm -rf -- {} + && \
             echo "======================================== " && \
             echo "✓ Selkies installation completed successfully (local)" && \
             echo "======================================== "; \
@@ -853,7 +854,8 @@ RUN     --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker
             echo "======================================== " && \
             echo "✓ Selkies v${SELKIES_VERSION} installation completed successfully!" && \
             echo "======================================== " && \
-            apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*; \
+            apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /var/tmp/* && \
+            find /tmp -mindepth 1 -maxdepth 1 -not -name install_to_docker -exec rm -rf -- {} +; \
         fi
 
 #
