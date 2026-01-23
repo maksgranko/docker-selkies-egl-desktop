@@ -24,6 +24,7 @@ RUN apt-get clean && apt-get update && apt-get dist-upgrade -y && apt-get instal
         locales \
         ssl-cert \
         sudo \
+        systemd-udev \
         udev \
         tzdata && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
@@ -48,11 +49,13 @@ ENV LANGUAGE="en_US:en"
 ENV LC_ALL="en_US.UTF-8"
 ENV CURL_RETRY_OPTS="--retry 5 --retry-delay 3 --retry-connrefused"
 
-USER 1000
-# Use BUILDAH_FORMAT=docker in buildah
-SHELL ["/usr/bin/fakeroot", "--", "/bin/sh", "-c"]
+USER 0
+# Use standard shell for install steps
+SHELL ["/bin/sh", "-c"]
 
 # Install operating system libraries or packages
+USER 0
+SHELL ["/bin/sh", "-c"]
 RUN apt-get update && apt-get install --no-install-recommends -y \
         # Operating system packages
         software-properties-common \
@@ -262,6 +265,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         \"library_path\": \"libEGL_nvidia.so.0\"\n\
     }\n\
 }" > /usr/share/glvnd/egl_vendor.d/10_nvidia.json
+
+USER 0
+# Use standard shell for install steps
+SHELL ["/bin/sh", "-c"]
 # Expose NVIDIA libraries and paths
 ENV PATH="/usr/local/nvidia/bin${PATH:+:${PATH}}"
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
@@ -737,9 +744,9 @@ RUN     echo "======================================== " && \
 #     ├── Dockerfile
 #     └── install_to_docker/wp_drivers_v*.tar.gz
 # If file is not found, this step will be skipped (driver is optional)
-ARG INCLUDE_WARPLAY_DRIVER=true
+ARG INCLUDE_WARPLAY_DRIVER=false
 RUN mkdir -pm755 /opt/wpcdrv
-COPY install_to_docker/wp_drivers_v*.tar.gz /tmp/
+# COPY install_to_docker/wp_drivers_v*.tar.gz /tmp/
 RUN if [ "$INCLUDE_WARPLAY_DRIVER" = "true" ]; then \
         DRIVER_FILE=$(ls /tmp/wp_drivers_v*.tar.gz 2>/dev/null | head -n 1) && \
         if [ -n "$DRIVER_FILE" ] && [ -f "$DRIVER_FILE" ]; then \

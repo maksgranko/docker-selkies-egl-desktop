@@ -173,7 +173,7 @@ if [ "$(echo ${SELKIES_ENABLE_BASIC_AUTH} | tr '[:upper:]' '[:lower:]')" != "fal
 # }" | tee /etc/nginx/sites-available/default > /dev/null
 
 # Clear the cache registry
-rm -rf "${HOME}/.cache/gstreamer-1.0"
+rm -rf "${HOME}/.cache/gstreamer-1.0" || sudo-root rm -rf "${HOME}/.cache/gstreamer-1.0" || echo 'Failed to clear gstreamer cache'
 
 # Start the Selkies WebRTC HTML5 remote desktop application
 selkies-gstreamer \
