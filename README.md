@@ -28,7 +28,7 @@ By default, Selkies artifacts are fetched from WARPLAY-CLOUD CDN during image bu
 - `install_to_docker/gstreamer-selkies_gpl_v*_ubuntu<VERSION_ID>_<ARCH>.tar.gz`
 - `install_to_docker/selkies_gstreamer-*.whl`
 - `install_to_docker/selkies-gstreamer-web_v*.tar.gz`
-- `install_to_docker/selkies-js-interposer_v*_ubuntu<VERSION_ID or 22.04>_<ARCH>.deb` (Ubuntu 24.04 uses the 22.04 package)
+- `install_to_docker/selkies-js-interposer_v*_ubuntu<VERSION_ID>_<ARCH>.deb` (if exact `VERSION_ID` is unavailable, the build will try 22.04 then 20.04)
 
 Optional: any files under `install_to_docker/copy_to_docker/` will be copied into `/` (overlay) during build, preserving paths.
 

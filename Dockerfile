@@ -631,26 +631,33 @@ RUN     --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker
         echo "Ubuntu Version: ${UBUNTU_VERSION}" && \
         echo "Architecture: ${ARCH}" && \
         echo "========================================" && \
-        if [ "${SELKIES_SOURCE}" = "local" ]; then \
-            echo "Using local Selkies artifacts from /tmp/install_to_docker" && \
-            LOCAL_DIR="/tmp/install_to_docker" && \
-            if [ -d "/tmp/install_to_docker/selkies" ] && \
-               ls -1 "/tmp/install_to_docker/selkies/gstreamer-selkies_gpl_v"*"_ubuntu${UBUNTU_VERSION}_${ARCH}.tar.gz" >/dev/null 2>&1; then \
-                LOCAL_DIR="/tmp/install_to_docker/selkies"; \
-            fi && \
+	        if [ "${SELKIES_SOURCE}" = "local" ]; then \
+	            echo "Using local Selkies artifacts from /tmp/install_to_docker" && \
+	            LOCAL_DIR="/tmp/install_to_docker" && \
+	            if [ -d "/tmp/install_to_docker/selkies" ] && ( \
+	               ls -1 "/tmp/install_to_docker/selkies/gstreamer-selkies_gpl_v"*"_ubuntu${UBUNTU_VERSION}_${ARCH}.tar.gz" >/dev/null 2>&1 || \
+	               ls -1 "/tmp/install_to_docker/selkies/gstreamer-selkies_gpl_v"*"_ubuntu22.04_${ARCH}.tar.gz" >/dev/null 2>&1 || \
+	               ls -1 "/tmp/install_to_docker/selkies/gstreamer-selkies_gpl_v"*"_ubuntu20.04_${ARCH}.tar.gz" >/dev/null 2>&1 \
+	            ); then \
+	                LOCAL_DIR="/tmp/install_to_docker/selkies"; \
+	            fi && \
             COPY_DIR="${LOCAL_DIR}/copy_to_docker" && \
             if [ ! -d "${COPY_DIR}" ]; then COPY_DIR="/tmp/install_to_docker/copy_to_docker"; fi && \
             if [ -d "${COPY_DIR}" ] && [ "$(ls -A "${COPY_DIR}" 2>/dev/null || true)" ]; then \
                 echo "Applying ${COPY_DIR} overlay to /" && \
                 cp -a "${COPY_DIR}"/. /; \
-            fi && \
-            echo "[1/4] Installing local GStreamer Selkies GPL bundle..." && \
-            GSTREAMER_FILE="$(ls -1 "${LOCAL_DIR}/gstreamer-selkies_gpl_v"*"_ubuntu${UBUNTU_VERSION}_${ARCH}.tar.gz" 2>/dev/null | head -n 1)" && \
-            if [ -z "${GSTREAMER_FILE}" ]; then \
-                echo "✗ ERROR: Missing local GStreamer bundle." && \
-                echo "  Expected: install_to_docker[/selkies]/gstreamer-selkies_gpl_v*_ubuntu${UBUNTU_VERSION}_${ARCH}.tar.gz" && \
-                exit 1; \
-            fi && \
+	            fi && \
+	            echo "[1/4] Installing local GStreamer Selkies GPL bundle..." && \
+	            GSTREAMER_FILE="" && \
+	            for REL in "${UBUNTU_VERSION}" "22.04" "20.04"; do \
+	                GSTREAMER_FILE="$(ls -1 "${LOCAL_DIR}/gstreamer-selkies_gpl_v"*"_ubuntu${REL}_${ARCH}.tar.gz" 2>/dev/null | head -n 1 || true)"; \
+	                if [ -n "${GSTREAMER_FILE}" ]; then echo "  - Using Ubuntu ${REL} bundle"; break; fi; \
+	            done && \
+	            if [ -z "${GSTREAMER_FILE}" ]; then \
+	                echo "✗ ERROR: Missing local GStreamer bundle." && \
+	                echo "  Expected: install_to_docker[/selkies]/gstreamer-selkies_gpl_v*_ubuntu(${UBUNTU_VERSION}|22.04|20.04)_${ARCH}.tar.gz" && \
+	                exit 1; \
+	            fi && \
             echo "  - File: ${GSTREAMER_FILE}" && \
             FILE_SIZE=$(stat -c%s "${GSTREAMER_FILE}" 2>/dev/null || stat -f%z "${GSTREAMER_FILE}" 2>/dev/null) && \
             FILE_SIZE_MB=$((FILE_SIZE / 1024 / 1024)) && \
@@ -695,17 +702,19 @@ RUN     --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker
             if [ -d "/opt/gst-web-react" ] && [ ! -d "/opt/gst-web" ]; then \
                 echo "  - Renaming gst-web-react to gst-web..." && \
                 mv /opt/gst-web-react /opt/gst-web; \
-            fi && \
-            echo "  ✓ Web interface extracted to /opt/gst-web" && \
-            echo "[4/4] Installing local Selkies JS Interposer..." && \
-            JS_UBUNTU_VERSION="${UBUNTU_VERSION}" && \
-            if [ "${UBUNTU_VERSION}" = "24.04" ]; then JS_UBUNTU_VERSION="22.04"; fi && \
-            JS_DEB="$(ls -1 "${LOCAL_DIR}/selkies-js-interposer_v"*"_ubuntu${JS_UBUNTU_VERSION}_${ARCH}.deb" 2>/dev/null | head -n 1)" && \
-            if [ -z "${JS_DEB}" ]; then \
-                echo "✗ ERROR: Missing local JS interposer package." && \
-                echo "  Expected: install_to_docker[/selkies]/selkies-js-interposer_v*_ubuntu${JS_UBUNTU_VERSION}_${ARCH}.deb" && \
-                exit 1; \
-            fi && \
+	            fi && \
+	            echo "  ✓ Web interface extracted to /opt/gst-web" && \
+	            echo "[4/4] Installing local Selkies JS Interposer..." && \
+	            JS_DEB="" && \
+	            for REL in "${UBUNTU_VERSION}" "22.04" "20.04"; do \
+	                JS_DEB="$(ls -1 "${LOCAL_DIR}/selkies-js-interposer_v"*"_ubuntu${REL}_${ARCH}.deb" 2>/dev/null | head -n 1 || true)"; \
+	                if [ -n "${JS_DEB}" ]; then echo "  - Using Ubuntu ${REL} JS interposer"; break; fi; \
+	            done && \
+	            if [ -z "${JS_DEB}" ]; then \
+	                echo "✗ ERROR: Missing local JS interposer package." && \
+	                echo "  Expected: install_to_docker[/selkies]/selkies-js-interposer_v*_ubuntu(${UBUNTU_VERSION}|22.04|20.04)_${ARCH}.deb" && \
+	                exit 1; \
+	            fi && \
             echo "  - File: ${JS_DEB}" && \
             DEB_SIZE=$(stat -c%s "${JS_DEB}" 2>/dev/null || stat -f%z "${JS_DEB}" 2>/dev/null) && \
             echo "  - File size: $((DEB_SIZE / 1024)) KB (${DEB_SIZE} bytes)" && \
@@ -728,20 +737,28 @@ RUN     --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker
                 exit 1; \
             fi && \
             echo "✓ Latest Selkies version: ${SELKIES_VERSION}" && \
-            CDN_BASE_URL="https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/download/v${SELKIES_VERSION}" && \
-            echo "CDN Base URL: ${CDN_BASE_URL}" && \
-            echo "========================================" && \
-            echo "[1/4] Downloading GStreamer Selkies GPL bundle..." && \
-            GSTREAMER_FILE="gstreamer-selkies_gpl_v${SELKIES_VERSION}_ubuntu${UBUNTU_VERSION}_${ARCH}.tar.gz" && \
-            echo "  - File: ${GSTREAMER_FILE}" && \
-            echo "  - URL: ${CDN_BASE_URL}/${GSTREAMER_FILE}" && \
-            cd /tmp && \
-            echo "  - Downloading file (this may take a while)..." && \
-            curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
-                -o "${GSTREAMER_FILE}" "${CDN_BASE_URL}/${GSTREAMER_FILE}" && \
-            if [ ! -f "${GSTREAMER_FILE}" ]; then \
-                echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
-            fi && \
+	            CDN_BASE_URL="https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/download/v${SELKIES_VERSION}" && \
+	            echo "CDN Base URL: ${CDN_BASE_URL}" && \
+	            echo "========================================" && \
+	            echo "[1/4] Downloading GStreamer Selkies GPL bundle..." && \
+	            cd /tmp && \
+	            echo "  - Downloading file (this may take a while)..." && \
+	            GSTREAMER_FILE="" && \
+	            for REL in "${UBUNTU_VERSION}" "22.04" "20.04"; do \
+	                CAND_FILE="gstreamer-selkies_gpl_v${SELKIES_VERSION}_ubuntu${REL}_${ARCH}.tar.gz"; \
+	                echo "  - Trying: ${CAND_FILE}"; \
+	                if curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
+	                    -o "${CAND_FILE}" "${CDN_BASE_URL}/${CAND_FILE}"; then \
+	                    GSTREAMER_FILE="${CAND_FILE}"; \
+	                    echo "  - Selected Ubuntu ${REL} bundle"; \
+	                    break; \
+	                else \
+	                    rm -f "${CAND_FILE}" || true; \
+	                fi; \
+	            done && \
+	            if [ ! -f "${GSTREAMER_FILE}" ]; then \
+	                echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
+	            fi && \
             FILE_SIZE=$(stat -c%s "${GSTREAMER_FILE}" 2>/dev/null || stat -f%z "${GSTREAMER_FILE}" 2>/dev/null) && \
             FILE_SIZE_MB=$((FILE_SIZE / 1024 / 1024)) && \
             echo "  - Downloaded file size: ${FILE_SIZE_MB} MB (${FILE_SIZE} bytes)" && \
@@ -801,24 +818,27 @@ RUN     --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker
             if [ -d "/opt/gst-web-react" ] && [ ! -d "/opt/gst-web" ]; then \
                 echo "  - Renaming gst-web-react to gst-web..." && \
                 mv /opt/gst-web-react /opt/gst-web; \
-            fi && \
-            echo "  ✓ Web interface extracted to /opt/gst-web" && \
-            echo "[4/4] Downloading and installing Selkies JS Interposer..." && \
-            JS_UBUNTU_VERSION="${UBUNTU_VERSION}" && \
-            if [ "${UBUNTU_VERSION}" = "24.04" ]; then \
-                JS_UBUNTU_VERSION="22.04"; \
-                echo "  - Note: Using Ubuntu 22.04 version for compatibility with 24.04"; \
-            fi && \
-            JS_FILE="selkies-js-interposer_v${SELKIES_VERSION}_ubuntu${JS_UBUNTU_VERSION}_${ARCH}.deb" && \
-            echo "  - File: ${JS_FILE}" && \
-            echo "  - URL: ${CDN_BASE_URL}/${JS_FILE}" && \
-            cd /tmp && \
-            echo "  - Downloading file..." && \
-            curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
-                -o selkies-js-interposer.deb "${CDN_BASE_URL}/${JS_FILE}" && \
-            if [ ! -f selkies-js-interposer.deb ]; then \
-                echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
-            fi && \
+	            fi && \
+	            echo "  ✓ Web interface extracted to /opt/gst-web" && \
+	            echo "[4/4] Downloading and installing Selkies JS Interposer..." && \
+	            cd /tmp && \
+	            echo "  - Downloading file..." && \
+	            JS_FILE="" && \
+	            for REL in "${UBUNTU_VERSION}" "22.04" "20.04"; do \
+	                CAND_FILE="selkies-js-interposer_v${SELKIES_VERSION}_ubuntu${REL}_${ARCH}.deb"; \
+	                echo "  - Trying: ${CAND_FILE}"; \
+	                if curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
+	                    -o selkies-js-interposer.deb "${CDN_BASE_URL}/${CAND_FILE}"; then \
+	                    JS_FILE="${CAND_FILE}"; \
+	                    echo "  - Selected Ubuntu ${REL} JS interposer"; \
+	                    break; \
+	                else \
+	                    rm -f selkies-js-interposer.deb || true; \
+	                fi; \
+	            done && \
+	            if [ ! -f selkies-js-interposer.deb ]; then \
+	                echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
+	            fi && \
             DEB_SIZE=$(stat -c%s selkies-js-interposer.deb 2>/dev/null || stat -f%z selkies-js-interposer.deb 2>/dev/null) && \
             echo "  - Downloaded file size: $((DEB_SIZE / 1024)) KB (${DEB_SIZE} bytes)" && \
             if [ ${DEB_SIZE} -lt 1000 ]; then \
