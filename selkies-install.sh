@@ -3,6 +3,7 @@ set -euo pipefail
 
 STATE_DIR="${STATE_DIR:-/opt/selkies-install}"
 mkdir -p "${STATE_DIR}"
+mkdir -p "${STATE_DIR}/cache"
 
 SELKIES_SOURCE="${SELKIES_SOURCE:-cdn}" # cdn|local
 
@@ -34,6 +35,48 @@ detect_local_dir() {
     done
   fi
   echo "${base}"
+}
+
+detect_local_version() {
+  local local_dir="$1"
+
+  # Try to infer the Selkies version from any present artifact.
+  # Prefer wheel/web, then deb/tar.
+  local f v
+
+  f="$(ls -1 "${local_dir}/selkies_gstreamer-"*.whl 2>/dev/null | head -n 1 || true)"
+  if [ -n "${f}" ]; then
+    v="$(basename "${f}")"
+    v="${v#selkies_gstreamer-}"
+    v="${v%-py3-none-any.whl}"
+    if [ -n "${v}" ]; then echo "${v}"; return 0; fi
+  fi
+
+  f="$(ls -1 "${local_dir}/selkies-gstreamer-web_v"*.tar.gz 2>/dev/null | head -n 1 || true)"
+  if [ -n "${f}" ]; then
+    v="$(basename "${f}")"
+    v="${v#selkies-gstreamer-web_v}"
+    v="${v%.tar.gz}"
+    if [ -n "${v}" ]; then echo "${v}"; return 0; fi
+  fi
+
+  f="$(ls -1 "${local_dir}/selkies-js-interposer_v"*"_ubuntu"*".deb" 2>/dev/null | head -n 1 || true)"
+  if [ -n "${f}" ]; then
+    v="$(basename "${f}")"
+    v="${v#selkies-js-interposer_v}"
+    v="${v%%_ubuntu*}"
+    if [ -n "${v}" ]; then echo "${v}"; return 0; fi
+  fi
+
+  f="$(ls -1 "${local_dir}/gstreamer-selkies_gpl_v"*"_ubuntu"*".tar.gz" 2>/dev/null | head -n 1 || true)"
+  if [ -n "${f}" ]; then
+    v="$(basename "${f}")"
+    v="${v#gstreamer-selkies_gpl_v}"
+    v="${v%%_ubuntu*}"
+    if [ -n "${v}" ]; then echo "${v}"; return 0; fi
+  fi
+
+  return 1
 }
 
 apply_copy_overlay_if_present() {
@@ -68,6 +111,25 @@ init_cdn() {
   write_state cdn_base_url "https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/download/v${v}"
 }
 
+init_local() {
+  local local_dir version
+  local_dir="$(detect_local_dir)"
+  version="$(detect_local_version "${local_dir}" || true)"
+  if [ -z "${version}" ]; then
+    echo "ERROR: SELKIES_SOURCE=local but can't detect Selkies version from artifacts in ${local_dir}" >&2
+    echo "  Provide at least one of:" >&2
+    echo "    - selkies_gstreamer-<version>-py3-none-any.whl" >&2
+    echo "    - selkies-gstreamer-web_v<version>.tar.gz" >&2
+    echo "    - selkies-js-interposer_v<version>_ubuntu<release>_<arch>.deb" >&2
+    echo "    - gstreamer-selkies_gpl_v<version>_ubuntu<release>_<arch>.tar.gz" >&2
+    exit 1
+  fi
+  write_state selkies_version "${version}"
+  write_state cdn_base_url "https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/download/v${version}"
+  echo "Local Selkies version: ${version}"
+  echo "CDN Base URL (fallback): $(read_state cdn_base_url)"
+}
+
 init() {
   echo "========================================"
   echo "Selkies source: ${SELKIES_SOURCE}"
@@ -82,7 +144,7 @@ init() {
     init_cdn
     echo "CDN Base URL: $(read_state cdn_base_url)"
   elif [ "${SELKIES_SOURCE}" = "local" ]; then
-    :
+    init_local
   else
     echo "ERROR: SELKIES_SOURCE must be 'cdn' or 'local' (got '${SELKIES_SOURCE}')" >&2
     exit 1
@@ -104,8 +166,9 @@ install_gstreamer_local() {
     fi
   done
   if [ -z "${f}" ]; then
-    echo "ERROR: Missing local GStreamer bundle in ${local_dir}" >&2
-    exit 1
+    echo "No local GStreamer bundle found in ${local_dir}, falling back to CDN download into image cache..."
+    install_gstreamer_cdn
+    return 0
   fi
   gzip -t "${f}" >/dev/null 2>&1 || { echo "ERROR: corrupted gzip: ${f}" >&2; exit 1; }
   tar -xzf "${f}" -C /opt
@@ -118,25 +181,30 @@ install_gstreamer_cdn() {
   v="$(read_state selkies_version)"
 
   echo "[1/4] Downloading GStreamer Selkies GPL bundle..."
-  cd /tmp
   local chosen=""
   for rel in "${fallback_releases[@]}"; do
     local name="gstreamer-selkies_gpl_v${v}_ubuntu${rel}_${ARCH}.tar.gz"
+    local cached="${STATE_DIR}/cache/${name}"
     echo "  - Trying: ${name}"
-    if curl ${CURL_RETRY_OPTS:-} -fSL --progress-bar -o "${name}" "${base_url}/${name}"; then
-      chosen="${name}"
-      echo "  - Selected Ubuntu ${rel} bundle"
+    if [ -f "${cached}" ] && gzip -t "${cached}" >/dev/null 2>&1; then
+      chosen="${cached}"
+      echo "  - Using cached bundle (Ubuntu ${rel})"
       break
     fi
-    rm -f "${name}" || true
+    if curl ${CURL_RETRY_OPTS:-} -fSL --progress-bar -o "${cached}" "${base_url}/${name}"; then
+      if gzip -t "${cached}" >/dev/null 2>&1; then
+        chosen="${cached}"
+        echo "  - Downloaded and cached (Ubuntu ${rel})"
+        break
+      fi
+      rm -f "${cached}" || true
+    fi
   done
   if [ -z "${chosen}" ] || [ ! -f "${chosen}" ]; then
     echo "ERROR: failed to download any compatible GStreamer bundle from CDN" >&2
     exit 1
   fi
-  gzip -t "${chosen}" >/dev/null 2>&1 || { echo "ERROR: corrupted gzip: ${chosen}" >&2; exit 1; }
   tar -xzf "${chosen}" -C /opt
-  rm -f "${chosen}" || true
 }
 
 install_gstreamer() {
@@ -298,4 +366,3 @@ case "${cmd}" in
     exit 2
     ;;
 esac
-
