@@ -8,6 +8,21 @@ set -e
 
 trap "echo TRAPed signal" HUP INT QUIT TERM
 
+# Some environments/images may not provide /usr/bin/sudo-root (this repo normally creates it).
+# Provide a best-effort fallback so the entrypoint doesn't crash.
+if ! command -v sudo-root >/dev/null 2>&1; then
+  shopt -s expand_aliases
+  if [ "$(id -u)" = "0" ]; then
+    alias sudo-root=''
+  elif command -v sudo >/dev/null 2>&1; then
+    alias sudo-root='sudo'
+  elif command -v fakeroot >/dev/null 2>&1; then
+    alias sudo-root='fakeroot'
+  else
+    alias sudo-root=''
+  fi
+fi
+
 # Startup mode:
 # - primary: start our own Xvfb/KDE (default)
 # - secondary: use host X (expect DISPLAY mounted/available), don't start Xvfb here
