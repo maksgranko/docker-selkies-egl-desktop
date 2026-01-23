@@ -21,6 +21,19 @@ Use [docker-selkies-glx-desktop](https://github.com/selkies-project/docker-selki
 
 This container is composed fully of vendor-neutral applications and protocols except the NVIDIA userspace driver components, indicating that **there is nothing stopping you from using this container with GPUs of other vendors including AMD and Intel**. Use the container toolkit/runtime or Kubernetes device plugin of each respective vendor, or make sure that it provisions `/dev/dri/card[n]` and `/dev/dri/renderD[128 + n]` devices using `--device=/dev/dri:rwm` **with sufficient host user permissions for the devices (`sudo chmod -R -f 777 /dev/dri` from the host)**, then set the [environment variable `SELKIES_ENCODER`](https://github.com/selkies-project/selkies/blob/main/docs/component.md#encoders) to values including `vah264enc`, `x264enc`, `vp8enc`, or `vp9enc` if using the Selkies WebRTC interface. However, this is not officially supported and issues may arise. This container also supports running without any GPUs with software fallback (set the [environment variable `SELKIES_ENCODER`](https://github.com/selkies-project/selkies/blob/main/docs/component.md#encoders) to values including `x264enc`, `vp8enc`, or `vp9enc` if using the Selkies WebRTC interface).
 
+### Offline build (no CDN)
+
+By default, Selkies artifacts are fetched from WARPLAY-CLOUD CDN during image build. For offline/air-gapped builds, enable Docker BuildKit (`DOCKER_BUILDKIT=1`), set `--build-arg SELKIES_SOURCE=local`, and place the required artifacts in `install_to_docker/`:
+
+- `install_to_docker/gstreamer-selkies_gpl_v*_ubuntu<VERSION_ID>_<ARCH>.tar.gz`
+- `install_to_docker/selkies_gstreamer-*.whl`
+- `install_to_docker/selkies-gstreamer-web_v*.tar.gz`
+- `install_to_docker/selkies-js-interposer_v*_ubuntu<VERSION_ID or 22.04>_<ARCH>.deb` (Ubuntu 24.04 uses the 22.04 package)
+
+Optional: any files under `install_to_docker/copy_to_docker/` will be copied into `/` (overlay) during build, preserving paths.
+
+If you prefer grouping artifacts under `install_to_docker/selkies/`, the build will auto-detect and use that directory as well.
+
 Container startup may take some time at first launch as it could automatically install NVIDIA driver libraries compatible with the host.
 
 For Windows applications or games, Wine, Winetricks, Lutris, Heroic Launcher, PlayOnLinux, and q4wine are bundled by default. Comment out the section where it is installed within `Dockerfile` if the user wants containers without Wine.

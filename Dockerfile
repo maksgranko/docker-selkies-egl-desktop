@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -294,6 +295,8 @@ ENV KASMVNC_ENABLE=false
 ENV SELKIES_ENCODER=nvh264enc
 ENV SELKIES_ENABLE_RESIZE=false
 ENV SELKIES_ENABLE_BASIC_AUTH=true
+ARG INSTALL_KASMVNC=true
+ENV INSTALL_KASMVNC=${INSTALL_KASMVNC}
 
 # Install Xvfb
 RUN apt-get update && apt-get install --no-install-recommends -y \
@@ -611,168 +614,240 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libxext6 && \
         if [ "$(grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '\"')" \> "20.04" ]; then apt-get install --no-install-recommends -y xcvt libopenh264-dev svt-av1 aom-tools; else apt-get install --no-install-recommends -y mesa-utils-extra; fi  # Install Selkies components from CDN (cdn.warplay.cloud)
 
+#
+# Selkies artifact source selection:
+# - cdn (default): download the latest release from WARPLAY-CLOUD CDN at build time
+# - local: use pre-downloaded artifacts from install_to_docker/ (offline / air-gapped builds)
+ARG SELKIES_SOURCE=cdn
+
 ARG CACHE_BREAKER=default
 
-RUN     echo "======================================== " && \
-        echo "Fetching latest Selkies version from CDN..." && \
-        SELKIES_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/latest" | jq -r '.tag_name')" && \
-        if [ -z "${SELKIES_VERSION}" ] || [ "${SELKIES_VERSION}" = "null" ]; then \
-            echo "✗ ERROR: Failed to fetch Selkies version from CDN" && \
-            echo "  Please check: https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/latest" && \
-            exit 1; \
-        fi && \
-        echo "✓ Latest Selkies version: ${SELKIES_VERSION}" && \
+RUN     --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro \
+        set -eu && \
+        echo "======================================== " && \
         UBUNTU_VERSION="$(grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '\"')" && \
         ARCH="$(dpkg --print-architecture)" && \
-        CDN_BASE_URL="https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/download/v${SELKIES_VERSION}" && \
+        echo "Selkies source: ${SELKIES_SOURCE}" && \
         echo "Ubuntu Version: ${UBUNTU_VERSION}" && \
         echo "Architecture: ${ARCH}" && \
-        echo "CDN Base URL: ${CDN_BASE_URL}" && \
         echo "========================================" && \
-        # Step 1: Download and extract GStreamer Selkies GPL bundle to /opt
-        echo "[1/4] Downloading GStreamer Selkies GPL bundle..." && \
-        GSTREAMER_FILE="gstreamer-selkies_gpl_v${SELKIES_VERSION}_ubuntu${UBUNTU_VERSION}_${ARCH}.tar.gz" && \
-        echo "  - File: ${GSTREAMER_FILE}" && \
-        echo "  - URL: ${CDN_BASE_URL}/${GSTREAMER_FILE}" && \
-        cd /tmp && \
-        echo "  - Downloading file (this may take a while)..." && \
-        curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
-            -o "${GSTREAMER_FILE}" "${CDN_BASE_URL}/${GSTREAMER_FILE}" && \
-        if [ ! -f "${GSTREAMER_FILE}" ]; then \
-            echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
-        fi && \
-        FILE_SIZE=$(stat -c%s "${GSTREAMER_FILE}" 2>/dev/null || stat -f%z "${GSTREAMER_FILE}" 2>/dev/null) && \
-        FILE_SIZE_MB=$((FILE_SIZE / 1024 / 1024)) && \
-        echo "  - Downloaded file size: ${FILE_SIZE_MB} MB (${FILE_SIZE} bytes)" && \
-        if [ ${FILE_SIZE} -lt 10000000 ]; then \
-            echo "  ✗ ERROR: File is too small (< 10 MB), probably download failed or CDN error" && \
-            echo "  - File contents preview:" && \
-            head -20 "${GSTREAMER_FILE}" && \
-            exit 1; \
-        fi && \
-        echo "  - Verifying archive integrity..." && \
-        if ! gzip -t "${GSTREAMER_FILE}" 2>/dev/null; then \
-            echo "  ✗ ERROR: Archive is corrupted or not a valid gzip file!" && \
-            exit 1; \
-        fi && \
-        echo "  - Extracting to /opt..." && \
-        cd /opt && tar -xzf "/tmp/${GSTREAMER_FILE}" && \
-        rm -f "/tmp/${GSTREAMER_FILE}" && \
-        echo "  ✓ GStreamer bundle extracted to /opt" && \
-        # Step 2: Download and install Python wheel package
-        echo "[2/4] Downloading and installing Selkies GStreamer Python package..." && \
-        WHL_FILE="selkies_gstreamer-${SELKIES_VERSION}-py3-none-any.whl" && \
-        echo "  - File: ${WHL_FILE}" && \
-        echo "  - URL: ${CDN_BASE_URL}/${WHL_FILE}" && \
-        cd /tmp && \
-        echo "  - Downloading file..." && \
-        curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
-            -o "${WHL_FILE}" "${CDN_BASE_URL}/${WHL_FILE}" && \
-        if [ ! -f "${WHL_FILE}" ]; then \
-            echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
-        fi && \
-        WHL_SIZE=$(stat -c%s "${WHL_FILE}" 2>/dev/null || stat -f%z "${WHL_FILE}" 2>/dev/null) && \
-        echo "  - Downloaded file size: $((WHL_SIZE / 1024)) KB (${WHL_SIZE} bytes)" && \
-        if [ ${WHL_SIZE} -lt 10000 ]; then \
-            echo "  ✗ ERROR: File is too small (< 10 KB), probably download failed" && \
-            cat "${WHL_FILE}" && \
-            exit 1; \
-        fi && \
-        echo "  - Installing via pip3..." && \
-        pip3 install --no-cache-dir --force-reinstall --ignore-installed idna "${WHL_FILE}" "websockets<14.0" && \
-        rm -f "${WHL_FILE}" && \
-        echo "  ✓ Python package installed" && \
-        # Step 3: Download and extract Selkies GStreamer Web interface to /opt
-        echo "[3/4] Downloading Selkies GStreamer Web interface..." && \
-        WEB_FILE="selkies-gstreamer-web_v${SELKIES_VERSION}.tar.gz" && \
-        echo "  - File: ${WEB_FILE}" && \
-        echo "  - URL: ${CDN_BASE_URL}/${WEB_FILE}" && \
-        cd /tmp && \
-        echo "  - Downloading file..." && \
-        curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
-            -o "${WEB_FILE}" "${CDN_BASE_URL}/${WEB_FILE}" && \
-        if [ ! -f "${WEB_FILE}" ]; then \
-            echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
-        fi && \
-        WEB_SIZE=$(stat -c%s "${WEB_FILE}" 2>/dev/null || stat -f%z "${WEB_FILE}" 2>/dev/null) && \
-        echo "  - Downloaded file size: $((WEB_SIZE / 1024)) KB (${WEB_SIZE} bytes)" && \
-        echo "  - Extracting to /opt..." && \
-        cd /opt && tar -xzf "/tmp/${WEB_FILE}" && \
-        rm -f "/tmp/${WEB_FILE}" && \
-        if [ -d "/opt/gst-web-react" ] && [ ! -d "/opt/gst-web" ]; then \
-            echo "  - Renaming gst-web-react to gst-web..." && \
-            mv /opt/gst-web-react /opt/gst-web; \
-        fi && \
-        echo "  ✓ Web interface extracted to /opt/gst-web" && \
-        # Step 4: Download and install Selkies JS Interposer (using Ubuntu 22.04 version for compatibility with 24.04)
-        echo "[4/4] Downloading and installing Selkies JS Interposer..." && \
-        JS_UBUNTU_VERSION="${UBUNTU_VERSION}" && \
-        if [ "${UBUNTU_VERSION}" = "24.04" ]; then \
-            JS_UBUNTU_VERSION="22.04"; \
-            echo "  - Note: Using Ubuntu 22.04 version for compatibility with 24.04"; \
-        fi && \
-        JS_FILE="selkies-js-interposer_v${SELKIES_VERSION}_ubuntu${JS_UBUNTU_VERSION}_${ARCH}.deb" && \
-        echo "  - File: ${JS_FILE}" && \
-        echo "  - URL: ${CDN_BASE_URL}/${JS_FILE}" && \
-        cd /tmp && \
-        echo "  - Downloading file..." && \
-        curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
-            -o selkies-js-interposer.deb "${CDN_BASE_URL}/${JS_FILE}" && \
-        if [ ! -f selkies-js-interposer.deb ]; then \
-            echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
-        fi && \
-        DEB_SIZE=$(stat -c%s selkies-js-interposer.deb 2>/dev/null || stat -f%z selkies-js-interposer.deb 2>/dev/null) && \
-        echo "  - Downloaded file size: $((DEB_SIZE / 1024)) KB (${DEB_SIZE} bytes)" && \
-        if [ ${DEB_SIZE} -lt 1000 ]; then \
-            echo "  ✗ ERROR: File is too small (< 1 KB), probably download failed" && \
-            cat selkies-js-interposer.deb && \
-            exit 1; \
-        fi && \
-        echo "  - Installing package..." && \
-        apt-get update && apt-get install --no-install-recommends -y ./selkies-js-interposer.deb && \
-        rm -f selkies-js-interposer.deb && \
-        echo "  ✓ JS Interposer installed" && \
-        echo "======================================== " && \
-        echo "✓ Selkies v${SELKIES_VERSION} installation completed successfully!" && \
-        echo "======================================== " && \
-        apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*
-
-# Copy and extract Warplay driver from host (optional)
-# Place wp_drivers_v*.tar.gz file in install_to_docker/ directory before building
-# Directory structure:
-#   docker-selkies-egl-desktop/
-#     ├── Dockerfile
-#     └── install_to_docker/wp_drivers_v*.tar.gz
-# If file is not found, this step will be skipped (driver is optional)
-ARG INCLUDE_WARPLAY_DRIVER=false
-RUN mkdir -pm755 /opt/wpcdrv
-# COPY install_to_docker/wp_drivers_v*.tar.gz /tmp/
-RUN if [ "$INCLUDE_WARPLAY_DRIVER" = "true" ]; then \
-        DRIVER_FILE=$(ls /tmp/wp_drivers_v*.tar.gz 2>/dev/null | head -n 1) && \
-        if [ -n "$DRIVER_FILE" ] && [ -f "$DRIVER_FILE" ]; then \
-            echo "Installing Warplay driver from $DRIVER_FILE..." && \
-            cd /opt/wpcdrv && \
-            tar -xzf "$DRIVER_FILE" --strip-components=1 && \
-            rm -f /tmp/wp_drivers_v*.tar.gz && \
-            chown -R 1000:1000 /opt/wpcdrv && \
-            echo "Warplay driver installed successfully"; \
+        if [ "${SELKIES_SOURCE}" = "local" ]; then \
+            echo "Using local Selkies artifacts from /tmp/install_to_docker" && \
+            LOCAL_DIR="/tmp/install_to_docker" && \
+            if [ -d "/tmp/install_to_docker/selkies" ] && \
+               ls -1 "/tmp/install_to_docker/selkies/gstreamer-selkies_gpl_v"*"_ubuntu${UBUNTU_VERSION}_${ARCH}.tar.gz" >/dev/null 2>&1; then \
+                LOCAL_DIR="/tmp/install_to_docker/selkies"; \
+            fi && \
+            COPY_DIR="${LOCAL_DIR}/copy_to_docker" && \
+            if [ ! -d "${COPY_DIR}" ]; then COPY_DIR="/tmp/install_to_docker/copy_to_docker"; fi && \
+            if [ -d "${COPY_DIR}" ] && [ "$(ls -A "${COPY_DIR}" 2>/dev/null || true)" ]; then \
+                echo "Applying ${COPY_DIR} overlay to /" && \
+                cp -a "${COPY_DIR}"/. /; \
+            fi && \
+            echo "[1/4] Installing local GStreamer Selkies GPL bundle..." && \
+            GSTREAMER_FILE="$(ls -1 "${LOCAL_DIR}/gstreamer-selkies_gpl_v"*"_ubuntu${UBUNTU_VERSION}_${ARCH}.tar.gz" 2>/dev/null | head -n 1)" && \
+            if [ -z "${GSTREAMER_FILE}" ]; then \
+                echo "✗ ERROR: Missing local GStreamer bundle." && \
+                echo "  Expected: install_to_docker[/selkies]/gstreamer-selkies_gpl_v*_ubuntu${UBUNTU_VERSION}_${ARCH}.tar.gz" && \
+                exit 1; \
+            fi && \
+            echo "  - File: ${GSTREAMER_FILE}" && \
+            FILE_SIZE=$(stat -c%s "${GSTREAMER_FILE}" 2>/dev/null || stat -f%z "${GSTREAMER_FILE}" 2>/dev/null) && \
+            FILE_SIZE_MB=$((FILE_SIZE / 1024 / 1024)) && \
+            echo "  - File size: ${FILE_SIZE_MB} MB (${FILE_SIZE} bytes)" && \
+            if [ ${FILE_SIZE} -lt 10000000 ]; then \
+                echo "  ✗ ERROR: File is too small (< 10 MB), probably incomplete" && exit 1; \
+            fi && \
+            if ! gzip -t "${GSTREAMER_FILE}" 2>/dev/null; then \
+                echo "  ✗ ERROR: Archive is corrupted or not a valid gzip file!" && exit 1; \
+            fi && \
+            echo "  - Extracting to /opt..." && \
+            cd /opt && tar -xzf "${GSTREAMER_FILE}" && \
+            echo "  ✓ GStreamer bundle extracted to /opt" && \
+            echo "[2/4] Installing local Selkies GStreamer Python package..." && \
+            WHL_FILE="$(ls -1 "${LOCAL_DIR}/selkies_gstreamer-"*.whl 2>/dev/null | sort -V | tail -n 1)" && \
+            if [ -z "${WHL_FILE}" ]; then \
+                echo "✗ ERROR: Missing local Python wheel." && \
+                echo "  Expected: install_to_docker[/selkies]/selkies_gstreamer-*.whl" && \
+                exit 1; \
+            fi && \
+            echo "  - File: ${WHL_FILE}" && \
+            WHL_SIZE=$(stat -c%s "${WHL_FILE}" 2>/dev/null || stat -f%z "${WHL_FILE}" 2>/dev/null) && \
+            echo "  - File size: $((WHL_SIZE / 1024)) KB (${WHL_SIZE} bytes)" && \
+            if [ ${WHL_SIZE} -lt 10000 ]; then \
+                echo "  ✗ ERROR: File is too small (< 10 KB), probably incomplete" && exit 1; \
+            fi && \
+            echo "  - Installing via pip3..." && \
+            pip3 install --no-cache-dir --force-reinstall --ignore-installed idna "${WHL_FILE}" "websockets<14.0" && \
+            echo "  ✓ Python package installed" && \
+            echo "[3/4] Installing local Selkies GStreamer Web interface..." && \
+            WEB_FILE="$(ls -1 "${LOCAL_DIR}/selkies-gstreamer-web_v"*.tar.gz 2>/dev/null | sort -V | tail -n 1)" && \
+            if [ -z "${WEB_FILE}" ]; then \
+                echo "✗ ERROR: Missing local web interface tarball." && \
+                echo "  Expected: install_to_docker[/selkies]/selkies-gstreamer-web_v*.tar.gz" && \
+                exit 1; \
+            fi && \
+            echo "  - File: ${WEB_FILE}" && \
+            WEB_SIZE=$(stat -c%s "${WEB_FILE}" 2>/dev/null || stat -f%z "${WEB_FILE}" 2>/dev/null) && \
+            echo "  - File size: $((WEB_SIZE / 1024)) KB (${WEB_SIZE} bytes)" && \
+            echo "  - Extracting to /opt..." && \
+            cd /opt && tar -xzf "${WEB_FILE}" && \
+            if [ -d "/opt/gst-web-react" ] && [ ! -d "/opt/gst-web" ]; then \
+                echo "  - Renaming gst-web-react to gst-web..." && \
+                mv /opt/gst-web-react /opt/gst-web; \
+            fi && \
+            echo "  ✓ Web interface extracted to /opt/gst-web" && \
+            echo "[4/4] Installing local Selkies JS Interposer..." && \
+            JS_UBUNTU_VERSION="${UBUNTU_VERSION}" && \
+            if [ "${UBUNTU_VERSION}" = "24.04" ]; then JS_UBUNTU_VERSION="22.04"; fi && \
+            JS_DEB="$(ls -1 "${LOCAL_DIR}/selkies-js-interposer_v"*"_ubuntu${JS_UBUNTU_VERSION}_${ARCH}.deb" 2>/dev/null | head -n 1)" && \
+            if [ -z "${JS_DEB}" ]; then \
+                echo "✗ ERROR: Missing local JS interposer package." && \
+                echo "  Expected: install_to_docker[/selkies]/selkies-js-interposer_v*_ubuntu${JS_UBUNTU_VERSION}_${ARCH}.deb" && \
+                exit 1; \
+            fi && \
+            echo "  - File: ${JS_DEB}" && \
+            DEB_SIZE=$(stat -c%s "${JS_DEB}" 2>/dev/null || stat -f%z "${JS_DEB}" 2>/dev/null) && \
+            echo "  - File size: $((DEB_SIZE / 1024)) KB (${DEB_SIZE} bytes)" && \
+            if [ ${DEB_SIZE} -lt 1000 ]; then \
+                echo "  ✗ ERROR: File is too small (< 1 KB), probably incomplete" && exit 1; \
+            fi && \
+            echo "  - Installing package..." && \
+            apt-get update && apt-get install --no-install-recommends -y "${JS_DEB}" && \
+            echo "  ✓ JS Interposer installed" && \
+            apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
+            echo "======================================== " && \
+            echo "✓ Selkies installation completed successfully (local)" && \
+            echo "======================================== "; \
         else \
-            echo "Warning: Warplay driver archive not found in install_to_docker/ directory." && \
-            echo "  Place wp_drivers_v*.tar.gz file in install_to_docker/ before building." && \
-            echo "  Or disable this step: docker build --build-arg INCLUDE_WARPLAY_DRIVER=false ." && \
-            echo "  Expected: install_to_docker/wp_drivers_v*.tar.gz"; \
-        fi; \
-    else \
-        echo "Skipping Warplay driver installation (INCLUDE_WARPLAY_DRIVER=false)"; \
-    fi
+            echo "Fetching latest Selkies version from CDN..." && \
+            SELKIES_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/latest" | jq -r '.tag_name')" && \
+            if [ -z "${SELKIES_VERSION}" ] || [ "${SELKIES_VERSION}" = "null" ]; then \
+                echo "✗ ERROR: Failed to fetch Selkies version from CDN" && \
+                echo "  Please check: https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/latest" && \
+                exit 1; \
+            fi && \
+            echo "✓ Latest Selkies version: ${SELKIES_VERSION}" && \
+            CDN_BASE_URL="https://cdn.warplay.cloud/drivers/linux/system/selkies/releases/download/v${SELKIES_VERSION}" && \
+            echo "CDN Base URL: ${CDN_BASE_URL}" && \
+            echo "========================================" && \
+            echo "[1/4] Downloading GStreamer Selkies GPL bundle..." && \
+            GSTREAMER_FILE="gstreamer-selkies_gpl_v${SELKIES_VERSION}_ubuntu${UBUNTU_VERSION}_${ARCH}.tar.gz" && \
+            echo "  - File: ${GSTREAMER_FILE}" && \
+            echo "  - URL: ${CDN_BASE_URL}/${GSTREAMER_FILE}" && \
+            cd /tmp && \
+            echo "  - Downloading file (this may take a while)..." && \
+            curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
+                -o "${GSTREAMER_FILE}" "${CDN_BASE_URL}/${GSTREAMER_FILE}" && \
+            if [ ! -f "${GSTREAMER_FILE}" ]; then \
+                echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
+            fi && \
+            FILE_SIZE=$(stat -c%s "${GSTREAMER_FILE}" 2>/dev/null || stat -f%z "${GSTREAMER_FILE}" 2>/dev/null) && \
+            FILE_SIZE_MB=$((FILE_SIZE / 1024 / 1024)) && \
+            echo "  - Downloaded file size: ${FILE_SIZE_MB} MB (${FILE_SIZE} bytes)" && \
+            if [ ${FILE_SIZE} -lt 10000000 ]; then \
+                echo "  ✗ ERROR: File is too small (< 10 MB), probably download failed or CDN error" && \
+                echo "  - File contents preview:" && \
+                head -20 "${GSTREAMER_FILE}" && \
+                exit 1; \
+            fi && \
+            echo "  - Verifying archive integrity..." && \
+            if ! gzip -t "${GSTREAMER_FILE}" 2>/dev/null; then \
+                echo "  ✗ ERROR: Archive is corrupted or not a valid gzip file!" && \
+                exit 1; \
+            fi && \
+            echo "  - Extracting to /opt..." && \
+            cd /opt && tar -xzf "/tmp/${GSTREAMER_FILE}" && \
+            rm -f "/tmp/${GSTREAMER_FILE}" && \
+            echo "  ✓ GStreamer bundle extracted to /opt" && \
+            echo "[2/4] Downloading and installing Selkies GStreamer Python package..." && \
+            WHL_FILE="selkies_gstreamer-${SELKIES_VERSION}-py3-none-any.whl" && \
+            echo "  - File: ${WHL_FILE}" && \
+            echo "  - URL: ${CDN_BASE_URL}/${WHL_FILE}" && \
+            cd /tmp && \
+            echo "  - Downloading file..." && \
+            curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
+                -o "${WHL_FILE}" "${CDN_BASE_URL}/${WHL_FILE}" && \
+            if [ ! -f "${WHL_FILE}" ]; then \
+                echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
+            fi && \
+            WHL_SIZE=$(stat -c%s "${WHL_FILE}" 2>/dev/null || stat -f%z "${WHL_FILE}" 2>/dev/null) && \
+            echo "  - Downloaded file size: $((WHL_SIZE / 1024)) KB (${WHL_SIZE} bytes)" && \
+            if [ ${WHL_SIZE} -lt 10000 ]; then \
+                echo "  ✗ ERROR: File is too small (< 10 KB), probably download failed" && \
+                cat "${WHL_FILE}" && \
+                exit 1; \
+            fi && \
+            echo "  - Installing via pip3..." && \
+            pip3 install --no-cache-dir --force-reinstall --ignore-installed idna "${WHL_FILE}" "websockets<14.0" && \
+            rm -f "${WHL_FILE}" && \
+            echo "  ✓ Python package installed" && \
+            echo "[3/4] Downloading Selkies GStreamer Web interface..." && \
+            WEB_FILE="selkies-gstreamer-web_v${SELKIES_VERSION}.tar.gz" && \
+            echo "  - File: ${WEB_FILE}" && \
+            echo "  - URL: ${CDN_BASE_URL}/${WEB_FILE}" && \
+            cd /tmp && \
+            echo "  - Downloading file..." && \
+            curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
+                -o "${WEB_FILE}" "${CDN_BASE_URL}/${WEB_FILE}" && \
+            if [ ! -f "${WEB_FILE}" ]; then \
+                echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
+            fi && \
+            WEB_SIZE=$(stat -c%s "${WEB_FILE}" 2>/dev/null || stat -f%z "${WEB_FILE}" 2>/dev/null) && \
+            echo "  - Downloaded file size: $((WEB_SIZE / 1024)) KB (${WEB_SIZE} bytes)" && \
+            echo "  - Extracting to /opt..." && \
+            cd /opt && tar -xzf "/tmp/${WEB_FILE}" && \
+            rm -f "/tmp/${WEB_FILE}" && \
+            if [ -d "/opt/gst-web-react" ] && [ ! -d "/opt/gst-web" ]; then \
+                echo "  - Renaming gst-web-react to gst-web..." && \
+                mv /opt/gst-web-react /opt/gst-web; \
+            fi && \
+            echo "  ✓ Web interface extracted to /opt/gst-web" && \
+            echo "[4/4] Downloading and installing Selkies JS Interposer..." && \
+            JS_UBUNTU_VERSION="${UBUNTU_VERSION}" && \
+            if [ "${UBUNTU_VERSION}" = "24.04" ]; then \
+                JS_UBUNTU_VERSION="22.04"; \
+                echo "  - Note: Using Ubuntu 22.04 version for compatibility with 24.04"; \
+            fi && \
+            JS_FILE="selkies-js-interposer_v${SELKIES_VERSION}_ubuntu${JS_UBUNTU_VERSION}_${ARCH}.deb" && \
+            echo "  - File: ${JS_FILE}" && \
+            echo "  - URL: ${CDN_BASE_URL}/${JS_FILE}" && \
+            cd /tmp && \
+            echo "  - Downloading file..." && \
+            curl ${CURL_RETRY_OPTS} -fSL --progress-bar -w "HTTP Status: %{http_code}, Size: %{size_download} bytes\n" \
+                -o selkies-js-interposer.deb "${CDN_BASE_URL}/${JS_FILE}" && \
+            if [ ! -f selkies-js-interposer.deb ]; then \
+                echo "  ✗ ERROR: File was not downloaded!" && exit 1; \
+            fi && \
+            DEB_SIZE=$(stat -c%s selkies-js-interposer.deb 2>/dev/null || stat -f%z selkies-js-interposer.deb 2>/dev/null) && \
+            echo "  - Downloaded file size: $((DEB_SIZE / 1024)) KB (${DEB_SIZE} bytes)" && \
+            if [ ${DEB_SIZE} -lt 1000 ]; then \
+                echo "  ✗ ERROR: File is too small (< 1 KB), probably download failed" && \
+                cat selkies-js-interposer.deb && \
+                exit 1; \
+            fi && \
+            echo "  - Installing package..." && \
+            apt-get update && apt-get install --no-install-recommends -y ./selkies-js-interposer.deb && \
+            rm -f selkies-js-interposer.deb && \
+            echo "  ✓ JS Interposer installed" && \
+            echo "======================================== " && \
+            echo "✓ Selkies v${SELKIES_VERSION} installation completed successfully!" && \
+            echo "======================================== " && \
+            apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*; \
+        fi
 
 #
 # Install KasmVNC web interface; RustDesk removed
-RUN KASMVNC_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/kasmtech/KasmVNC/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
-    cd /tmp && curl -o kasmvncserver.deb -fsSL ${CURL_RETRY_OPTS} "https://github.com/kasmtech/KasmVNC/releases/download/v${KASMVNC_VERSION}/kasmvncserver_$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"')_${KASMVNC_VERSION}_$(dpkg --print-architecture).deb" && apt-get update && apt-get install --no-install-recommends -y ./kasmvncserver.deb libdatetime-perl && rm -f kasmvncserver.deb && \
-    YQ_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/mikefarah/yq/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
-    cd /tmp && curl -o yq -fsSL ${CURL_RETRY_OPTS} "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_$(dpkg --print-architecture)" && install ./yq /usr/bin/ && rm -f yq && \
-    apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*
+RUN if [ "$(echo ${INSTALL_KASMVNC} | tr '[:upper:]' '[:lower:]')" = "true" ]; then \
+        KASMVNC_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/kasmtech/KasmVNC/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
+        cd /tmp && curl -o kasmvncserver.deb -fsSL ${CURL_RETRY_OPTS} "https://github.com/kasmtech/KasmVNC/releases/download/v${KASMVNC_VERSION}/kasmvncserver_$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"')_${KASMVNC_VERSION}_$(dpkg --print-architecture).deb" && \
+        apt-get update && apt-get install --no-install-recommends -y ./kasmvncserver.deb libdatetime-perl && rm -f kasmvncserver.deb && \
+        YQ_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/mikefarah/yq/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
+        cd /tmp && curl -o yq -fsSL ${CURL_RETRY_OPTS} "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_$(dpkg --print-architecture)" && install ./yq /usr/bin/ && rm -f yq && \
+        apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*; \
+    else \
+        echo "Skipping KasmVNC install (INSTALL_KASMVNC=${INSTALL_KASMVNC})"; \
+    fi
 
 # Copy scripts and configurations used to start the container with `--chown=1000:1000`
 COPY --chown=1000:1000 entrypoint.sh /etc/entrypoint.sh

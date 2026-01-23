@@ -4,6 +4,13 @@ services:
     hostname: egl
     # Change tag `latest` to Ubuntu versions such as `24.04`, use a persistent tag such as `24.04-20210101010101` to persist a certain container version
     build: .
+    # Для offline/air-gapped сборки Selkies из локальных файлов:
+    #   - положи артефакты в ./install_to_docker (см. README/имена файлов)
+    #   - установи build-arg SELKIES_SOURCE=local
+    # build:
+    #   context: .
+    #   args:
+    #     SELKIES_SOURCE: local
     # image: ghcr.io/aer1s/nvidia-egl-desktop:latest
     ports:
       - "8080:8080"
