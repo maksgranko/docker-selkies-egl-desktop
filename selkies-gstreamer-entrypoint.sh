@@ -6,6 +6,22 @@
 
 set -e
 
+# Use sudo-root if available for root-owned paths.
+SUDO_ROOT_CMD=""
+if command -v sudo-root >/dev/null 2>&1; then
+  SUDO_ROOT_CMD="sudo-root"
+elif command -v sudo >/dev/null 2>&1; then
+  SUDO_ROOT_CMD="sudo"
+fi
+
+run_root() {
+  if [ -n "${SUDO_ROOT_CMD}" ]; then
+    ${SUDO_ROOT_CMD} "$@"
+  else
+    "$@"
+  fi
+}
+
 # Wait for XDG_RUNTIME_DIR
 until [ -d "${XDG_RUNTIME_DIR}" ]; do sleep 0.5; done
 
@@ -58,7 +74,20 @@ if command -v nvidia-smi &> /dev/null && nvidia-smi >/dev/null 2>&1; then
   fi
   echo "Selected NVRTC archive: ${NVRTC_ARCHIVE}"
   NVRTC_LIB_ARCH="$(dpkg --print-architecture | sed -e 's/arm64/aarch64-linux-gnu/' -e 's/armhf/arm-linux-gnueabihf/' -e 's/riscv64/riscv64-linux-gnu/' -e 's/ppc64el/powerpc64le-linux-gnu/' -e 's/s390x/s390x-linux-gnu/' -e 's/i.*86/i386-linux-gnu/' -e 's/amd64/x86_64-linux-gnu/' -e 's/unknown/x86_64-linux-gnu/')"
-  cd /tmp && curl -fsSL "${NVRTC_URL}${NVRTC_ARCHIVE}" | tar -xJf - -C /tmp && mv -f cuda_nvrtc* cuda_nvrtc && cd cuda_nvrtc/lib && chmod -f 755 libnvrtc* && rm -f "${NVRTC_DEST_PREFIX}/lib/${NVRTC_LIB_ARCH}/"libnvrtc* && mv -f libnvrtc* "${NVRTC_DEST_PREFIX}/lib/${NVRTC_LIB_ARCH}/" && cd /tmp && rm -rf /tmp/cuda_nvrtc && cd "${HOME}"
+  cd /tmp
+  curl -fsSL "${NVRTC_URL}${NVRTC_ARCHIVE}" | tar -xJf - -C /tmp
+  mv -f cuda_nvrtc* cuda_nvrtc
+  cd cuda_nvrtc/lib
+  chmod -f 755 libnvrtc* || true
+  if ! run_root rm -f "${NVRTC_DEST_PREFIX}/lib/${NVRTC_LIB_ARCH}/"libnvrtc*; then
+    echo "WARN: Failed to remove existing NVRTC libs in ${NVRTC_DEST_PREFIX}/lib/${NVRTC_LIB_ARCH} (insufficient permissions?)" >&2
+  fi
+  if ! run_root mv -f libnvrtc* "${NVRTC_DEST_PREFIX}/lib/${NVRTC_LIB_ARCH}/"; then
+    echo "WARN: Failed to install NVRTC libs into ${NVRTC_DEST_PREFIX}/lib/${NVRTC_LIB_ARCH} (insufficient permissions?)" >&2
+  fi
+  cd /tmp
+  rm -rf /tmp/cuda_nvrtc || true
+  cd "${HOME}"
 fi
 
 # Wait for X server to start
