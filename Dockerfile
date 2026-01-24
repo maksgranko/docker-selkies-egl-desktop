@@ -730,35 +730,6 @@ RUN     echo "======================================== " && \
         echo "======================================== " && \
         apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*
 
-# Copy and extract Warplay driver from host (optional)
-# Place wp_drivers_v*.tar.gz file in install_to_docker/ directory before building
-# Directory structure:
-#   docker-selkies-egl-desktop/
-#     ├── Dockerfile
-#     └── install_to_docker/wp_drivers_v*.tar.gz
-# If file is not found, this step will be skipped (driver is optional)
-ARG INCLUDE_WARPLAY_DRIVER=true
-RUN mkdir -pm755 /opt/wpcdrv
-COPY install_to_docker/wp_drivers_v*.tar.gz /tmp/
-RUN if [ "$INCLUDE_WARPLAY_DRIVER" = "true" ]; then \
-        DRIVER_FILE=$(ls /tmp/wp_drivers_v*.tar.gz 2>/dev/null | head -n 1) && \
-        if [ -n "$DRIVER_FILE" ] && [ -f "$DRIVER_FILE" ]; then \
-            echo "Installing Warplay driver from $DRIVER_FILE..." && \
-            cd /opt/wpcdrv && \
-            tar -xzf "$DRIVER_FILE" --strip-components=1 && \
-            rm -f /tmp/wp_drivers_v*.tar.gz && \
-            chown -R 1000:1000 /opt/wpcdrv && \
-            echo "Warplay driver installed successfully"; \
-        else \
-            echo "Warning: Warplay driver archive not found in install_to_docker/ directory." && \
-            echo "  Place wp_drivers_v*.tar.gz file in install_to_docker/ before building." && \
-            echo "  Or disable this step: docker build --build-arg INCLUDE_WARPLAY_DRIVER=false ." && \
-            echo "  Expected: install_to_docker/wp_drivers_v*.tar.gz"; \
-        fi; \
-    else \
-        echo "Skipping Warplay driver installation (INCLUDE_WARPLAY_DRIVER=false)"; \
-    fi
-
 #
 # Install KasmVNC web interface; RustDesk removed
 RUN KASMVNC_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/kasmtech/KasmVNC/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
