@@ -8,6 +8,21 @@ set -e
 
 trap "echo TRAPed signal" HUP INT QUIT TERM
 
+# Some environments/images may not provide /usr/bin/sudo-root (this repo normally creates it).
+# Provide a best-effort fallback so the entrypoint doesn't crash.
+if ! command -v sudo-root >/dev/null 2>&1; then
+  shopt -s expand_aliases
+  if [ "$(id -u)" = "0" ]; then
+    alias sudo-root=''
+  elif command -v sudo >/dev/null 2>&1; then
+    alias sudo-root='sudo'
+  elif command -v fakeroot >/dev/null 2>&1; then
+    alias sudo-root='fakeroot'
+  else
+    alias sudo-root=''
+  fi
+fi
+
 # Startup mode:
 # - primary: start our own Xvfb/KDE (default)
 # - secondary: use host X (expect DISPLAY mounted/available), don't start Xvfb here
@@ -37,6 +52,26 @@ export SDL_JOYSTICK_DEVICE=/dev/input/js0
 mkdir -pm1777 /dev/input || sudo-root mkdir -pm1777 /dev/input || echo 'Failed to create joystick interposer directory'
 touch /dev/input/js0 /dev/input/js1 /dev/input/js2 /dev/input/js3 || sudo-root touch /dev/input/js0 /dev/input/js1 /dev/input/js2 /dev/input/js3 || echo 'Failed to create joystick interposer devices'
 chmod 777 /dev/input/js* || sudo-root chmod 777 /dev/input/js* || echo 'Failed to change permission for joystick interposer devices'
+
+# Start udevd for libudev consumers (Firefox Gamepad API)
+if command -v udevadm >/dev/null 2>&1; then
+  UDEVD_BIN=""
+  if [ -x /usr/lib/systemd/systemd-udevd ]; then
+    UDEVD_BIN="/usr/lib/systemd/systemd-udevd"
+  elif command -v systemd-udevd >/dev/null 2>&1; then
+    UDEVD_BIN="systemd-udevd"
+  elif command -v udevd >/dev/null 2>&1; then
+    UDEVD_BIN="udevd"
+  fi
+  if [ -n "${UDEVD_BIN}" ]; then
+    mkdir -pm755 /run/udev || sudo-root mkdir -pm755 /run/udev || echo 'Failed to create /run/udev'
+    sudo-root "${UDEVD_BIN}" --daemon || "${UDEVD_BIN}" --daemon || echo 'Failed to start udevd'
+    udevadm trigger --action=add || sudo-root udevadm trigger --action=add || echo 'Failed to trigger udev'
+    udevadm settle || sudo-root udevadm settle || echo 'Failed to settle udev'
+  else
+    echo 'udevd binary not found, skipping udev startup'
+  fi
+fi
 
 # Set default display
 export DISPLAY="${DISPLAY:-:20}"
