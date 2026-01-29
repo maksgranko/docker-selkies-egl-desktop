@@ -9,6 +9,22 @@ This is a fork of the original [selkies-project/docker-selkies-egl-desktop](http
 - Optimized for WARPLAY-CLOUD infrastructure
 - Custom Selkies builds with enhanced performance
 
+## Local build (this monorepo)
+
+Build Selkies artifacts, copy them into `install_to_docker/`, then build the image using `SELKIES_SOURCE=local`:
+
+```bash
+cd docker-selkies-egl-desktop
+chmod +x ./build.sh
+./build.sh
+```
+
+Common options:
+
+```bash
+IMAGE_TAG=selkies-egl:local BUILD_GSTREAMER=false BUILD_CONTROL=true SELKIES_SOURCE=local INSTALL_KASMVNC=false ./build.sh
+```
+
 Use [docker-selkies-glx-desktop](https://github.com/selkies-project/docker-selkies-glx-desktop) for a KDE Plasma Desktop container with better performance, having fully optimized OpenGL and Vulkan for NVIDIA GPUs by spawning its own fully isolated X.Org X11 Server, also not using `/tmp/.X11-unix` host sockets.
 
 [![Build](https://github.com/WARPLAY-CLOUD/docker-selkies-egl-desktop/actions/workflows/container-publish.yml/badge.svg)](https://github.com/WARPLAY-CLOUD/docker-selkies-egl-desktop/actions/workflows/container-publish.yml)
