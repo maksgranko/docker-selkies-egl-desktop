@@ -636,10 +636,10 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
       fi; \
       echo "${base}"; \
     }; \
-    detect_local_version() { \
-      local local_dir="$1"; \
-      local f v; \
-      f="$(ls -1 "${local_dir}/selkies_gstreamer-"*.whl 2>/dev/null | head -n 1 || true)"; \
+	    detect_local_version() { \
+	      local local_dir="$1"; \
+	      local f v; \
+	      f="$(ls -1 "${local_dir}/selkies_gstreamer-"*.whl 2>/dev/null | head -n 1 || true)"; \
       if [ -n "${f}" ]; then \
         v="$(basename "${f}")"; \
         v="${v#selkies_gstreamer-}"; \
@@ -647,23 +647,16 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
         if [ -n "${v}" ]; then echo "${v}"; return 0; fi; \
       fi; \
       f="$(ls -1 "${local_dir}/selkies-gstreamer-web_v"*.tar.gz 2>/dev/null | head -n 1 || true)"; \
-      if [ -n "${f}" ]; then \
-        v="$(basename "${f}")"; \
-        v="${v#selkies-gstreamer-web_v}"; \
-        v="${v%.tar.gz}"; \
-        if [ -n "${v}" ]; then echo "${v}"; return 0; fi; \
-      fi; \
-      f="$(ls -1 "${local_dir}/selkies-js-interposer_v"*"_ubuntu"*".deb" 2>/dev/null | head -n 1 || true)"; \
-      if [ -n "${f}" ]; then \
-        v="$(basename "${f}")"; \
-        v="${v#selkies-js-interposer_v}"; \
-        v="${v%%_ubuntu*}"; \
-        if [ -n "${v}" ]; then echo "${v}"; return 0; fi; \
-      fi; \
-      f="$(ls -1 "${local_dir}/gstreamer-selkies_gpl_v"*"_ubuntu"*".tar.gz" 2>/dev/null | head -n 1 || true)"; \
-      if [ -n "${f}" ]; then \
-        v="$(basename "${f}")"; \
-        v="${v#gstreamer-selkies_gpl_v}"; \
+	      if [ -n "${f}" ]; then \
+	        v="$(basename "${f}")"; \
+	        v="${v#selkies-gstreamer-web_v}"; \
+	        v="${v%.tar.gz}"; \
+	        if [ -n "${v}" ]; then echo "${v}"; return 0; fi; \
+	      fi; \
+	      f="$(ls -1 "${local_dir}/gstreamer-selkies_gpl_v"*"_ubuntu"*".tar.gz" 2>/dev/null | head -n 1 || true)"; \
+	      if [ -n "${f}" ]; then \
+	        v="$(basename "${f}")"; \
+	        v="${v#gstreamer-selkies_gpl_v}"; \
         v="${v%%_ubuntu*}"; \
         if [ -n "${v}" ]; then echo "${v}"; return 0; fi; \
       fi; \
@@ -690,15 +683,14 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
     elif [ "${SELKIES_SOURCE}" = "local" ]; then \
       LOCAL_DIR="$(detect_local_dir)"; \
       SELKIES_VERSION="$(detect_local_version "${LOCAL_DIR}" || true)"; \
-      if [ -z "${SELKIES_VERSION}" ]; then \
-        echo "ERROR: SELKIES_SOURCE=local but can't detect Selkies version from artifacts in ${LOCAL_DIR}" >&2; \
-        echo "  Provide at least one of:" >&2; \
-        echo "    - selkies_gstreamer-<version>-py3-none-any.whl" >&2; \
-        echo "    - selkies-gstreamer-web_v<version>.tar.gz" >&2; \
-        echo "    - selkies-js-interposer_v<version>_ubuntu<release>_<arch>.deb" >&2; \
-        echo "    - gstreamer-selkies_gpl_v<version>_ubuntu<release>_<arch>.tar.gz" >&2; \
-        exit 1; \
-      fi; \
+	      if [ -z "${SELKIES_VERSION}" ]; then \
+	        echo "ERROR: SELKIES_SOURCE=local but can't detect Selkies version from artifacts in ${LOCAL_DIR}" >&2; \
+	        echo "  Provide at least one of:" >&2; \
+	        echo "    - selkies_gstreamer-<version>-py3-none-any.whl" >&2; \
+	        echo "    - selkies-gstreamer-web_v<version>.tar.gz" >&2; \
+	        echo "    - gstreamer-selkies_gpl_v<version>_ubuntu<release>_<arch>.tar.gz" >&2; \
+	        exit 1; \
+	      fi; \
       apply_copy_overlay_if_present "${LOCAL_DIR}"; \
     else \
       echo "ERROR: SELKIES_SOURCE must be 'cdn' or 'local' (got '${SELKIES_SOURCE}')" >&2; \
@@ -718,7 +710,7 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
       for rel in ${FALLBACK_RELEASES}; do \
         f="$(ls -1 "${LOCAL_DIR}/gstreamer-selkies_gpl_v"*"_ubuntu${rel}_${ARCH}.tar.gz" 2>/dev/null | head -n 1 || true)"; \
         if [ -n "${f}" ]; then \
-          echo "[1/4] Using local GStreamer bundle for Ubuntu ${rel}: $(basename "${f}")"; \
+	          echo "[1/3] Using local GStreamer bundle for Ubuntu ${rel}: $(basename "${f}")"; \
           GSTREAMER_FILE="${f}"; \
           break; \
         fi; \
@@ -727,12 +719,12 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
         gzip -t "${GSTREAMER_FILE}" >/dev/null 2>&1 || { echo "ERROR: corrupted gzip: ${GSTREAMER_FILE}" >&2; exit 1; }; \
         tar -xzf "${GSTREAMER_FILE}" -C /opt; \
       else \
-        echo "[1/4] No local GStreamer bundle found, falling back to CDN"; \
+	        echo "[1/3] No local GStreamer bundle found, falling back to CDN"; \
         GSTREAMER_FALLBACK_TO_CDN=true; \
       fi; \
     fi; \
     if [ "${SELKIES_SOURCE}" = "cdn" ] || [ "${GSTREAMER_FALLBACK_TO_CDN}" = "true" ]; then \
-      echo "[1/4] Downloading GStreamer Selkies GPL bundle..."; \
+	      echo "[1/3] Downloading GStreamer Selkies GPL bundle..."; \
       chosen=""; \
       for rel in ${FALLBACK_RELEASES}; do \
         name="gstreamer-selkies_gpl_v${SELKIES_VERSION}_ubuntu${rel}_${ARCH}.tar.gz"; \
@@ -766,10 +758,10 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
         echo "ERROR: Missing local Python wheel in ${LOCAL_DIR}" >&2; \
         exit 1; \
       fi; \
-      echo "[2/4] Installing local Python wheel: $(basename "${WHL}")"; \
+	      echo "[2/3] Installing local Python wheel: $(basename "${WHL}")"; \
       pip3 install --no-cache-dir --force-reinstall --ignore-installed idna "${WHL}" "websockets<14.0"; \
     else \
-      echo "[2/4] Downloading and installing Python wheel..."; \
+	      echo "[2/3] Downloading and installing Python wheel..."; \
       cd /tmp; \
       WHL="selkies_gstreamer-${SELKIES_VERSION}-py3-none-any.whl"; \
       curl ${CURL_RETRY_OPTS} -fSL --progress-bar -o "${WHL}" "${CDN_BASE_URL}/${WHL}"; \
@@ -784,10 +776,10 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
         echo "ERROR: Missing local web tarball in ${LOCAL_DIR}" >&2; \
         exit 1; \
       fi; \
-      echo "[3/4] Installing local web tarball: $(basename "${WEB}")"; \
+	      echo "[3/3] Installing local web tarball: $(basename "${WEB}")"; \
       tar -xzf "${WEB}" -C /opt; \
     else \
-      echo "[3/4] Downloading web interface..."; \
+	      echo "[3/3] Downloading web interface..."; \
       cd /tmp; \
       WEB="selkies-gstreamer-web_v${SELKIES_VERSION}.tar.gz"; \
       curl ${CURL_RETRY_OPTS} -fSL --progress-bar -o "${WEB}" "${CDN_BASE_URL}/${WEB}"; \
@@ -797,46 +789,9 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
     if [ -d "/opt/gst-web-react" ] && [ ! -d "/opt/gst-web" ]; then \
       mv /opt/gst-web-react /opt/gst-web; \
     fi; \
-    # Step 4: JS interposer \
-    if [ "${SELKIES_SOURCE}" = "local" ]; then \
-      LOCAL_DIR="${LOCAL_DIR:-$(detect_local_dir)}"; \
-      DEB=""; \
-      for rel in ${FALLBACK_RELEASES}; do \
-        DEB="$(ls -1 "${LOCAL_DIR}/selkies-js-interposer_v"*"_ubuntu${rel}_${ARCH}.deb" 2>/dev/null | head -n 1 || true)"; \
-        if [ -n "${DEB}" ]; then \
-          echo "[4/4] Using local JS interposer (Ubuntu ${rel}): $(basename "${DEB}")"; \
-          break; \
-        fi; \
-      done; \
-      if [ -z "${DEB}" ]; then \
-        echo "ERROR: Missing local JS interposer in ${LOCAL_DIR}" >&2; \
-        exit 1; \
-      fi; \
-      apt-get update; \
-      apt-get install --no-install-recommends -y "${DEB}"; \
-    else \
-      echo "[4/4] Downloading and installing JS interposer..."; \
-      cd /tmp; \
-      for rel in ${FALLBACK_RELEASES}; do \
-        NAME="selkies-js-interposer_v${SELKIES_VERSION}_ubuntu${rel}_${ARCH}.deb"; \
-        echo "  - Trying: ${NAME}"; \
-        if curl ${CURL_RETRY_OPTS} -fSL --progress-bar -o selkies-js-interposer.deb "${CDN_BASE_URL}/${NAME}"; then \
-          echo "  - Selected Ubuntu ${rel} JS interposer"; \
-          break; \
-        fi; \
-        rm -f selkies-js-interposer.deb || true; \
-      done; \
-      if [ ! -f selkies-js-interposer.deb ]; then \
-        echo "ERROR: failed to download JS interposer from CDN" >&2; \
-        exit 1; \
-      fi; \
-      apt-get update; \
-      apt-get install --no-install-recommends -y ./selkies-js-interposer.deb; \
-      rm -f selkies-js-interposer.deb || true; \
-    fi; \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /var/tmp/*; \
-    rm -rf /tmp/* || true
+	    apt-get clean; \
+	    rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /var/tmp/*; \
+	    rm -rf /tmp/* || true
 
 #
 # Install KasmVNC web interface; RustDesk removed

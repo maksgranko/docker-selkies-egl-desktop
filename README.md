@@ -22,7 +22,7 @@ chmod +x ./build.sh
 Common options:
 
 ```bash
-IMAGE_TAG=selkies-egl:local BUILD_GSTREAMER=false BUILD_CONTROL=true SELKIES_SOURCE=local INSTALL_KASMVNC=false ./build.sh
+IMAGE_TAG=selkies-egl:local BUILD_GSTREAMER=false SELKIES_SOURCE=local INSTALL_KASMVNC=false ./build.sh
 ```
 
 Use [docker-selkies-glx-desktop](https://github.com/selkies-project/docker-selkies-glx-desktop) for a KDE Plasma Desktop container with better performance, having fully optimized OpenGL and Vulkan for NVIDIA GPUs by spawning its own fully isolated X.Org X11 Server, also not using `/tmp/.X11-unix` host sockets.
