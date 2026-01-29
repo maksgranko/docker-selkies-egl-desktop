@@ -9,6 +9,10 @@ set -e
 # Wait for XDG_RUNTIME_DIR
 until [ -d "${XDG_RUNTIME_DIR}" ]; do sleep 0.5; done
 
+# Avoid writing caches into bind-mounted $HOME (common source of Permission denied).
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-/tmp/cache-ubuntu}"
+mkdir -p "${XDG_CACHE_HOME}" || true
+
 # Set default display
 export DISPLAY="${DISPLAY:-:20}"
 # PipeWire-Pulse server socket path
@@ -21,12 +25,37 @@ export PULSE_SERVER="${PULSE_SERVER:-unix:${PULSE_RUNTIME_PATH:-${XDG_RUNTIME_DI
 # Export environment variables required for Selkies
 export GST_DEBUG="${GST_DEBUG:-*:2}"
 export GSTREAMER_PATH=/opt/gstreamer
+export GST_REGISTRY_1_0="${GST_REGISTRY_1_0:-${XDG_CACHE_HOME}/gstreamer-1.0/registry.bin}"
+mkdir -p "$(dirname "${GST_REGISTRY_1_0}")" || true
 
 # Source environment for GStreamer
+if [ ! -f /opt/gstreamer/gst-env ]; then
+  echo "ERROR: /opt/gstreamer/gst-env not found; Selkies cannot start." >&2
+  echo "  - Did the GStreamer bundle install during image build?" >&2
+  echo "  - Contents of /opt:" >&2
+  ls -la /opt >&2 || true
+  echo "  - Contents of /opt/gstreamer:" >&2
+  ls -la /opt/gstreamer >&2 || true
+  exit 1
+fi
 . /opt/gstreamer/gst-env
+
+if ! command -v selkies-gstreamer >/dev/null 2>&1; then
+  echo "ERROR: selkies-gstreamer not found in PATH; Selkies wheel may be missing." >&2
+  echo "  - PATH=${PATH}" >&2
+  exit 1
+fi
 
 export SELKIES_ENCODER="${SELKIES_ENCODER:-x264enc}"
 export SELKIES_ENABLE_RESIZE="${SELKIES_ENABLE_RESIZE:-false}"
+
+# Validate encoder element exists; otherwise fall back to software encoder to avoid hard crash.
+if command -v gst-inspect-1.0 >/dev/null 2>&1; then
+  if ! gst-inspect-1.0 "${SELKIES_ENCODER}" >/dev/null 2>&1; then
+    echo "WARN: GStreamer encoder '${SELKIES_ENCODER}' not found; falling back to x264enc" >&2
+    export SELKIES_ENCODER="x264enc"
+  fi
+fi
 
 # Extract NVRTC dependency, https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvrtc/LICENSE.txt
 if command -v nvidia-smi &> /dev/null && nvidia-smi >/dev/null 2>&1; then
@@ -167,8 +196,8 @@ if [ "$(echo ${SELKIES_ENABLE_BASIC_AUTH} | tr '[:upper:]' '[:lower:]')" != "fal
 #     }
 # }" | tee /etc/nginx/sites-available/default > /dev/null
 
-# Clear the cache registry
-rm -rf "${HOME}/.cache/gstreamer-1.0"
+# Clear the cache registry (best-effort; do not fail if $HOME is read-only/bind-mounted).
+rm -rf "${XDG_CACHE_HOME}/gstreamer-1.0" "${HOME}/.cache/gstreamer-1.0" 2>/dev/null || true
 
 # Start the Selkies WebRTC HTML5 remote desktop application
 selkies-gstreamer \

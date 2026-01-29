@@ -15,6 +15,13 @@ export MODE="${MODE:-primary}"
 
 # Wait for XDG_RUNTIME_DIR
 until [ -d "${XDG_RUNTIME_DIR}" ]; do sleep 0.5; done
+
+# Avoid writing caches into bind-mounted $HOME (common source of Permission denied).
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-/tmp/cache-ubuntu}"
+mkdir -p "${XDG_CACHE_HOME}" || true
+
+# X11/ICE socket directories must exist and be writable for Xvfb/Plasma in rootless containers.
+sudo-root mkdir -pm1777 /tmp/.X11-unix /tmp/.ICE-unix 2>/dev/null || mkdir -pm1777 /tmp/.X11-unix /tmp/.ICE-unix 2>/dev/null || true
 # Make user directory owned by the default user
 chown -f "$(id -nu):$(id -ng)" ~ || sudo-root chown -f "$(id -nu):$(id -ng)" ~ || chown -R -f -h --no-preserve-root "$(id -nu):$(id -ng)" ~ || sudo-root chown -R -f -h --no-preserve-root "$(id -nu):$(id -ng)" ~ || echo 'Failed to change user directory permissions, there may be permission issues'
 # Change operating system password to environment variable
@@ -110,7 +117,13 @@ fi
 # Use VirtualGL to run the KDE desktop environment with OpenGL if the GPU is available, otherwise use OpenGL with llvmpipe
 export XDG_SESSION_ID="${DISPLAY#*:}"
 export QT_LOGGING_RULES="${QT_LOGGING_RULES:-*.debug=false;qt.qpa.*=false}"
-if [ -n "$(nvidia-smi --query-gpu=uuid --format=csv,noheader | head -n1)" ] || [ -n "$(ls -A /dev/dri 2>/dev/null)" ]; then
+NVIDIA_PRESENT=false
+if command -v nvidia-smi >/dev/null 2>&1; then
+  if [ -n "$(nvidia-smi --query-gpu=uuid --format=csv,noheader 2>/dev/null | head -n1)" ]; then
+    NVIDIA_PRESENT=true
+  fi
+fi
+if [ "${NVIDIA_PRESENT}" = "true" ] || [ -n "$(ls -A /dev/dri 2>/dev/null)" ]; then
   export VGL_FPS="${DISPLAY_REFRESH}"
   /usr/bin/vglrun -d "${VGL_DISPLAY:-egl}" +wm /usr/bin/dbus-launch --exit-with-session /usr/bin/startplasma-x11 &
 else
