@@ -88,10 +88,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         fonts-hack \
         fonts-liberation \
         fonts-noto \
-        fonts-noto-cjk \
-        fonts-noto-cjk-extra \
-        fonts-noto-extra \
-        fonts-noto-ui-extra \
         fonts-noto-hinted \
         fonts-noto-mono \
         fonts-noto-unhinted \
@@ -111,7 +107,15 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         vainfo \
         vdpau-driver-all \
         libvdpau-va-gl1 \
-        vdpauinfo \
+        vdpauinfo && \
+    rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* || true && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*
+
+RUN apt-get update && apt-get install --no-install-recommends -y \
+        fonts-noto-cjk \
+        fonts-noto-cjk-extra \
+        fonts-noto-extra \
+        fonts-noto-ui-extra \
         mesa-vulkan-drivers \
         vulkan-tools \
         radeontop \
@@ -160,8 +164,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libsm6 \
         netcat-openbsd && \
     rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* || true && \
-    # PipeWire and WirePlumber
-    mkdir -pm755 /etc/apt/trusted.gpg.d && curl -fsSL ${CURL_RETRY_OPTS} "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xFC43B7352BCC0EC8AF2EEB8B25088A0359807596" | gpg --dearmor -o /etc/apt/trusted.gpg.d/pipewire-debian-ubuntu-pipewire-upstream.gpg && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*
+
+# PipeWire and WirePlumber
+RUN mkdir -pm755 /etc/apt/trusted.gpg.d && curl -fsSL ${CURL_RETRY_OPTS} "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xFC43B7352BCC0EC8AF2EEB8B25088A0359807596" | gpg --dearmor -o /etc/apt/trusted.gpg.d/pipewire-debian-ubuntu-pipewire-upstream.gpg && \
     mkdir -pm755 /etc/apt/sources.list.d && echo "deb https://ppa.launchpadcontent.net/pipewire-debian/pipewire-upstream/ubuntu $(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"') main" > "/etc/apt/sources.list.d/pipewire-debian-ubuntu-pipewire-upstream-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').list" && \
     mkdir -pm755 /etc/apt/sources.list.d && echo "deb https://ppa.launchpadcontent.net/pipewire-debian/wireplumber-upstream/ubuntu $(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"') main" > "/etc/apt/sources.list.d/pipewire-debian-ubuntu-wireplumber-upstream-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').list" && \
     apt-get update && apt-get install --no-install-recommends -y \
@@ -211,7 +217,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libsm6:i386; fi && \
     # Install nvidia-vaapi-driver, requires the kernel parameter `nvidia_drm.modeset=1` set to run correctly
     if [ "$(grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '\"')" \> "20.04" ]; then \
-    apt-get update && apt-get install --no-install-recommends -y \
+    apt-get install --no-install-recommends -y \
         meson \
         gstreamer1.0-plugins-bad \
         libffmpeg-nvenc-dev \
