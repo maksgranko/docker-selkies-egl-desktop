@@ -46,6 +46,14 @@ if [ "$(echo ${SELKIES_ENABLE_RESIZE} | tr '[:upper:]' '[:lower:]')" = "true" ];
 echo 'Waiting for X Socket' && until [ -S "/tmp/.X11-unix/X${DISPLAY#*:}" ]; do sleep 0.5; done && echo 'X Server is ready'
 
 # Configure NGINX
+if ! command -v nginx >/dev/null 2>&1; then
+  echo "ERROR: KasmVNC mode requires nginx, but nginx is not installed in this image." >&2
+  exit 1
+fi
+if ! command -v htpasswd >/dev/null 2>&1; then
+  echo "ERROR: KasmVNC mode requires htpasswd (apache2-utils), but it is not installed in this image." >&2
+  exit 1
+fi
 if [ "$(echo ${SELKIES_ENABLE_BASIC_AUTH} | tr '[:upper:]' '[:lower:]')" != "false" ]; then htpasswd -bcm "${XDG_RUNTIME_DIR}/.htpasswd" "${SELKIES_BASIC_AUTH_USER:-${USER}}" "${SELKIES_BASIC_AUTH_PASSWORD:-${PASSWD}}"; fi
 echo "# Selkies KasmVNC NGINX Configuration
 server {
@@ -56,7 +64,6 @@ server {
     ssl_certificate ${SELKIES_HTTPS_CERT-/etc/ssl/certs/ssl-cert-snakeoil.pem};
     ssl_certificate_key ${SELKIES_HTTPS_KEY-/etc/ssl/private/ssl-cert-snakeoil.key};
     $(if [ \"$(echo ${SELKIES_ENABLE_BASIC_AUTH} | tr '[:upper:]' '[:lower:]')\" != \"false\" ]; then echo "auth_basic \"Selkies\";"; echo -n "    auth_basic_user_file ${XDG_RUNTIME_DIR}/.htpasswd;"; fi)
-
     location / {
         proxy_set_header        Upgrade \$http_upgrade;
         proxy_set_header        Connection \"upgrade\";

@@ -162,13 +162,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libglx0 \
         libglu1 \
         libsm6 \
-        # NGINX web server
-        nginx \
-        apache2-utils \
         netcat-openbsd && \
-    # Sanitize NGINX path
-    sed -i -e 's/\/var\/log\/nginx\/access\.log/\/dev\/stdout/g' -e 's/\/var\/log\/nginx\/error\.log/\/dev\/stderr/g' -e 's/\/run\/nginx\.pid/\/tmp\/nginx\.pid/g' /etc/nginx/nginx.conf && \
-    echo "error_log /dev/stderr;" >> /etc/nginx/nginx.conf && \
     # PipeWire and WirePlumber
     mkdir -pm755 /etc/apt/trusted.gpg.d && curl -fsSL ${CURL_RETRY_OPTS} "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xFC43B7352BCC0EC8AF2EEB8B25088A0359807596" | gpg --dearmor -o /etc/apt/trusted.gpg.d/pipewire-debian-ubuntu-pipewire-upstream.gpg && \
     mkdir -pm755 /etc/apt/sources.list.d && echo "deb https://ppa.launchpadcontent.net/pipewire-debian/pipewire-upstream/ubuntu $(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"') main" > "/etc/apt/sources.list.d/pipewire-debian-ubuntu-pipewire-upstream-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').list" && \
@@ -687,18 +681,11 @@ RUN if [ "$(echo ${INSTALL_KASMVNC} | tr '[:upper:]' '[:lower:]')" = "true" ]; t
     fi
 
 # Copy scripts and configurations used to start the container with `--chown=1000:1000`
-COPY --chown=1000:1000 entrypoint.sh /etc/entrypoint.sh
-RUN chmod -f 755 /etc/entrypoint.sh
-COPY --chown=1000:1000 selkies-gstreamer-entrypoint.sh /etc/selkies-gstreamer-entrypoint.sh
-RUN chmod -f 755 /etc/selkies-gstreamer-entrypoint.sh
-COPY --chown=1000:1000 warplay-control-entrypoint.sh /etc/warplay-control-entrypoint.sh
-RUN chmod -f 755 /etc/warplay-control-entrypoint.sh
-COPY --chown=1000:1000 kasmvnc-entrypoint.sh /etc/kasmvnc-entrypoint.sh
-RUN chmod -f 755 /etc/kasmvnc-entrypoint.sh
-COPY --chown=1000:1000 supervisord.conf /etc/supervisord.conf
-RUN chmod -f 755 /etc/supervisord.conf
-# Copy wp-helpers directory to /opt/wp-helpers
-COPY --chown=1000:1000 wp-helpers /opt/wp-helpers
+COPY --chown=1000:1000 --chmod=0755 entrypoint.sh /etc/entrypoint.sh
+COPY --chown=1000:1000 --chmod=0755 selkies-gstreamer-entrypoint.sh /etc/selkies-gstreamer-entrypoint.sh
+COPY --chown=1000:1000 --chmod=0755 warplay-control-entrypoint.sh /etc/warplay-control-entrypoint.sh
+COPY --chown=1000:1000 --chmod=0755 kasmvnc-entrypoint.sh /etc/kasmvnc-entrypoint.sh
+COPY --chown=1000:1000 --chmod=0755 supervisord.conf /etc/supervisord.conf
 
 SHELL ["/bin/sh", "-c"]
 

@@ -88,8 +88,14 @@ fi
 # Wait for X server to start
 echo 'Waiting for X Socket' && until [ -S "/tmp/.X11-unix/X${DISPLAY#*:}" ]; do sleep 0.5; done && echo 'X Server is ready'
 
-# Configure NGINX
-if [ "$(echo ${SELKIES_ENABLE_BASIC_AUTH} | tr '[:upper:]' '[:lower:]')" != "false" ]; then htpasswd -bcm "${XDG_RUNTIME_DIR}/.htpasswd" "${SELKIES_BASIC_AUTH_USER:-${USER}}" "${SELKIES_BASIC_AUTH_PASSWORD:-${PASSWD}}"; fi
+# Configure NGINX (optional)
+if [ "$(echo ${SELKIES_ENABLE_BASIC_AUTH} | tr '[:upper:]' '[:lower:]')" != "false" ]; then
+  if command -v htpasswd >/dev/null 2>&1; then
+    htpasswd -bcm "${XDG_RUNTIME_DIR}/.htpasswd" "${SELKIES_BASIC_AUTH_USER:-${USER}}" "${SELKIES_BASIC_AUTH_PASSWORD:-${PASSWD}}"
+  else
+    echo "WARN: SELKIES_ENABLE_BASIC_AUTH is enabled but htpasswd is not installed; skipping htpasswd generation" >&2
+  fi
+fi
 # echo "# Selkies NGINX Configuration
 # server {
 #     access_log /dev/stdout;
