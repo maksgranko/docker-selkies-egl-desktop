@@ -420,13 +420,18 @@ fi
 ARG STEAM_PREWARM=true
 RUN if [ "$(dpkg --print-architecture)" = "amd64" ] && [ "${STEAM_PREWARM}" = "true" ]; then \
      export HOME="/home/ubuntu" && \
+     mkdir -p "${HOME}" "${HOME}/.steam" "${HOME}/.local/share/Steam" && \
      export XDG_RUNTIME_DIR="/tmp/runtime-ubuntu" && \
      mkdir -p "${XDG_RUNTIME_DIR}" && chmod 0700 "${XDG_RUNTIME_DIR}" && \
-     timeout --signal=TERM --kill-after=10s 180s \
-       dbus-run-session -- \
-       xvfb-run -a -s "-screen 0 1280x720x24" \
-       env LIBGL_ALWAYS_SOFTWARE=1 __GLX_VENDOR_LIBRARY_NAME=mesa STEAM_DISABLE_GPU=1 \
-         steam -silent >/tmp/steam-prewarm.log 2>&1 || true && \
+     rm -f /tmp/steam-prewarm.log && \
+     for pass in 1 2; do \
+       timeout --signal=TERM --kill-after=15s 300s \
+         dbus-run-session -- \
+         xvfb-run -a -s "-screen 0 1280x720x24" \
+         env LIBGL_ALWAYS_SOFTWARE=1 __GLX_VENDOR_LIBRARY_NAME=mesa STEAM_DISABLE_GPU=1 \
+           steam -silent >>/tmp/steam-prewarm.log 2>&1 || true; \
+       sleep 2; \
+     done && \
      rm -rf "${XDG_RUNTIME_DIR}"; \
  fi
 
