@@ -90,14 +90,12 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         fonts-noto \
         fonts-noto-cjk \
         fonts-noto-cjk-extra \
-        fonts-noto-color-emoji \
         fonts-noto-extra \
         fonts-noto-ui-extra \
         fonts-noto-hinted \
         fonts-noto-mono \
         fonts-noto-unhinted \
         fonts-opensymbol \
-        fonts-symbola \
         fonts-ubuntu \
         lame \
         less \
@@ -332,6 +330,7 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
     # Ensure Firefox as the default web browser
     xdg-settings set default-web-browser firefox.desktop && \
     update-alternatives --set x-www-browser /usr/bin/firefox && \
+    rm -rf /usr/share/wallpapers /usr/share/backgrounds || true && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
     # Fix KDE startup permissions issues in containers
     MULTI_ARCH=$(dpkg --print-architecture | sed -e 's/arm64/aarch64-linux-gnu/' -e 's/armhf/arm-linux-gnueabihf/' -e 's/riscv64/riscv64-linux-gnu/' -e 's/ppc64el/powerpc64le-linux-gnu/' -e 's/s390x/s390x-linux-gnu/' -e 's/i.*86/i386-linux-gnu/' -e 's/amd64/x86_64-linux-gnu/' -e 's/unknown/x86_64-linux-gnu/') && \
@@ -654,6 +653,7 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
     if [ -d "/opt/gst-web-react" ] && [ ! -d "/opt/gst-web" ]; then \
       mv /opt/gst-web-react /opt/gst-web; \
     fi; \
+	    rm -rf "${STATE_DIR}" || true; \
 	    apt-get clean; \
 	    rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /var/tmp/*; \
 	    rm -rf /tmp/* || true
