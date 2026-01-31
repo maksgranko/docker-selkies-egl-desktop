@@ -306,7 +306,6 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
         kio \
         konsole \
         plasma-discover \
-        adwaita-icon-theme \
         breeze \
         breeze-cursor-theme \
         breeze-gtk-theme \
@@ -440,8 +439,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libgles2 \
         libglvnd0 \
         libglx0 \
-        wayland-protocols \
-        libwayland-dev \
         libwayland-egl1 \
         wmctrl \
         xsel \
@@ -640,6 +637,8 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
     fi; \
     if [ -d "/opt/gst-web-react" ] && [ ! -d "/opt/gst-web" ]; then \
       mv /opt/gst-web-react /opt/gst-web; \
+    elif [ -d "/opt/gst-web-react" ]; then \
+      rm -rf /opt/gst-web-react || true; \
     fi; \
 	    rm -rf "${STATE_DIR}" || true; \
 	    apt-get clean; \
