@@ -59,11 +59,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         software-properties-common \
         build-essential \
         ca-certificates \
-        cups-browsed \
-        cups-bsd \
-        cups-common \
-        cups-filters \
-        printer-driver-cups-pdf \
         alsa-base \
         alsa-utils \
         file \
@@ -84,7 +79,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         dnsutils \
         jq \
         python3 \
-        python3-cups \
         python3-numpy \
         nano \
         vim \
@@ -358,7 +352,6 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
         fcitx-unikey \
         filelight \
         frameworkintegration \
-        gwenview \
         haveged \
         hunspell \
         im-config \
@@ -405,8 +398,6 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
         libqt5multimedia5-plugins \
         librsvg2-common \
         media-player-info \
-        okular \
-        okular-extra-backends \
         plasma-browser-integration \
         plasma-calendar-addons \
         plasma-dataengines-addons \
@@ -414,7 +405,6 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
         plasma-integration \
         plasma-runners-addons \
         plasma-widgets-addons \
-        print-manager \
         qapt-deb-installer \
         qml-module-org-kde-runnermodel \
         qml-module-org-kde-qqc2desktopstyle \
@@ -431,27 +421,12 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
         sweeper \
         systemsettings \
         ubuntu-drivers-common \
-        vlc \
-        vlc-plugin-access-extra \
-        vlc-plugin-notify \
-        vlc-plugin-samba \
-        vlc-plugin-skins2 \
-        vlc-plugin-video-splitter \
-        vlc-plugin-visualization \
-        xdg-user-dirs \
-        xdg-utils \
         firefox \
-        transmission-qt && \
-    # apt-get install --install-recommends -y \
-    #     libreoffice \
-    #     libreoffice-kf5 \
-    #     libreoffice-plasma \
-    #     libreoffice-style-breeze && \
+        xdg-user-dirs \
+        xdg-utils && \
     # Ensure Firefox as the default web browser
     xdg-settings set default-web-browser firefox.desktop && \
     update-alternatives --set x-www-browser /usr/bin/firefox && \
-    # Install Google Chrome for supported architectures
-    if [ "$(dpkg --print-architecture)" = "amd64" ]; then cd /tmp && curl ${CURL_RETRY_OPTS} -o google-chrome-stable.deb -fsSL "https://dl.google.com/linux/direct/google-chrome-stable_current_$(dpkg --print-architecture).deb" && apt-get update && apt-get install --no-install-recommends -y ./google-chrome-stable.deb && rm -f google-chrome-stable.deb && sed -i '/^Exec=/ s/$/ --password-store=basic --in-process-gpu/' /usr/share/applications/google-chrome.desktop; fi && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
     # Fix KDE startup permissions issues in containers
     MULTI_ARCH=$(dpkg --print-architecture | sed -e 's/arm64/aarch64-linux-gnu/' -e 's/armhf/arm-linux-gnueabihf/' -e 's/riscv64/riscv64-linux-gnu/' -e 's/ppc64el/powerpc64le-linux-gnu/' -e 's/s390x/s390x-linux-gnu/' -e 's/i.*86/i386-linux-gnu/' -e 's/amd64/x86_64-linux-gnu/' -e 's/unknown/x86_64-linux-gnu/') && \
@@ -496,24 +471,14 @@ ENV QT_IM_MODULE=fcitx
 ENV XIM=fcitx
 ENV XMODIFIERS="@im=fcitx"
 
-# Wine, Winetricks, and launchers, this process must be consistent with https://wiki.winehq.org/Ubuntu
-ARG WINE_BRANCH=staging
-RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
-    mkdir -pm755 /etc/apt/keyrings && curl -fsSL ${CURL_RETRY_OPTS} -o /etc/apt/keyrings/winehq-archive.key "https://dl.winehq.org/wine-builds/winehq.key" && \
-    curl -fsSL ${CURL_RETRY_OPTS} -o "/etc/apt/sources.list.d/winehq-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').sources" "https://dl.winehq.org/wine-builds/ubuntu/dists/$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"')/winehq-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').sources" && \
-    apt-get update && apt-get install --install-recommends -y \
-        winehq-${WINE_BRANCH} && \
-    apt-get install --no-install-recommends -y \
-        q4wine \
-        playonlinux && \
-    LUTRIS_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/lutris/lutris/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
-    cd /tmp && curl -o lutris.deb -fsSL ${CURL_RETRY_OPTS} "https://github.com/lutris/lutris/releases/download/v${LUTRIS_VERSION}/lutris_${LUTRIS_VERSION}_all.deb" && apt-get install --no-install-recommends -y ./lutris.deb && rm -f lutris.deb && \
-    HEROIC_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/Heroic-Games-Launcher/HeroicGamesLauncher/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
-    cd /tmp && curl -o heroic_launcher.deb -fsSL ${CURL_RETRY_OPTS} "https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/v${HEROIC_VERSION}/Heroic-${HEROIC_VERSION}-linux-$(dpkg --print-architecture).deb" && apt-get install --no-install-recommends -y ./heroic_launcher.deb && rm -f heroic_launcher.deb && \
-    apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
-    curl -o /usr/bin/winetricks -fsSL ${CURL_RETRY_OPTS} "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks" && \
-    chmod -f 755 /usr/bin/winetricks && \
-    curl -o /usr/share/bash-completion/completions/winetricks -fsSL ${CURL_RETRY_OPTS} "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks.bash-completion"; fi
+ 
+ # Lutris and Heroic Launcher (without Wine)
+ RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+     LUTRIS_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/lutris/lutris/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
+     cd /tmp && curl -o lutris.deb -fsSL ${CURL_RETRY_OPTS} "https://github.com/lutris/lutris/releases/download/v${LUTRIS_VERSION}/lutris_${LUTRIS_VERSION}_all.deb" && apt-get install --no-install-recommends -y ./lutris.deb && rm -f lutris.deb && \
+     HEROIC_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/Heroic-Games-Launcher/HeroicGamesLauncher/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
+     cd /tmp && curl -o heroic_launcher.deb -fsSL ${CURL_RETRY_OPTS} "https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/v${HEROIC_VERSION}/Heroic-${HEROIC_VERSION}-linux-$(dpkg --print-architecture).deb" && apt-get install --no-install-recommends -y ./heroic_launcher.deb && rm -f heroic_launcher.deb && \
+     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*; fi
 
 
 # Steam (install as root during build; runs as non-root user at runtime)
