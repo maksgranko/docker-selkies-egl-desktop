@@ -323,6 +323,15 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
     update-alternatives --set x-www-browser /usr/bin/firefox && \
     rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* || true && \
     rm -rf /usr/share/wallpapers /usr/share/backgrounds || true && \
+    rm -rf /usr/share/sounds || true && \
+    rm -rf \
+        /usr/share/icons/Adwaita \
+        /usr/share/icons/Breeze_Snow \
+        /usr/share/icons/Humanity \
+        /usr/share/icons/Humanity-Dark \
+        /usr/share/icons/LoginIcons \
+        /usr/share/icons/ubuntu-mono-dark \
+        /usr/share/icons/ubuntu-mono-light || true && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
     # Fix KDE startup permissions issues in containers
     MULTI_ARCH=$(dpkg --print-architecture | sed -e 's/arm64/aarch64-linux-gnu/' -e 's/armhf/arm-linux-gnueabihf/' -e 's/riscv64/riscv64-linux-gnu/' -e 's/ppc64el/powerpc64le-linux-gnu/' -e 's/s390x/s390x-linux-gnu/' -e 's/i.*86/i386-linux-gnu/' -e 's/amd64/x86_64-linux-gnu/' -e 's/unknown/x86_64-linux-gnu/') && \
@@ -617,29 +626,7 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
       pip3 install --no-cache-dir --force-reinstall --ignore-installed idna "${WHL}" "websockets<14.0"; \
       rm -f "${WHL}" || true; \
     fi; \
-    # Step 3: Web UI \
-    if [ "${SELKIES_SOURCE}" = "local" ]; then \
-      LOCAL_DIR="${LOCAL_DIR:-$(detect_local_dir)}"; \
-      WEB="$(ls -1 "${LOCAL_DIR}/selkies-gstreamer-web_v"*.tar.gz 2>/dev/null | sort -V | tail -n 1 || true)"; \
-      if [ -z "${WEB}" ]; then \
-        echo "ERROR: Missing local web tarball in ${LOCAL_DIR}" >&2; \
-        exit 1; \
-      fi; \
-	      echo "[3/3] Installing local web tarball: $(basename "${WEB}")"; \
-      tar -xzf "${WEB}" -C /opt; \
-    else \
-	      echo "[3/3] Downloading web interface..."; \
-      cd /tmp; \
-      WEB="selkies-gstreamer-web_v${SELKIES_VERSION}.tar.gz"; \
-      curl ${CURL_RETRY_OPTS} -fSL --progress-bar -o "${WEB}" "${CDN_BASE_URL}/${WEB}"; \
-      tar -xzf "${WEB}" -C /opt; \
-      rm -f "${WEB}" || true; \
-    fi; \
-    if [ -d "/opt/gst-web-react" ] && [ ! -d "/opt/gst-web" ]; then \
-      mv /opt/gst-web-react /opt/gst-web; \
-    elif [ -d "/opt/gst-web-react" ]; then \
-      rm -rf /opt/gst-web-react || true; \
-    fi; \
+	  rm -rf /opt/gst-web /opt/gst-web-react || true; \
 	    rm -rf "${STATE_DIR}" || true; \
 	    apt-get clean; \
 	    rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /var/tmp/*; \
