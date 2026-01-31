@@ -220,7 +220,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libgstreamer-plugins-bad1.0-dev && \
     NVIDIA_VAAPI_DRIVER_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/elFarto/nvidia-vaapi-driver/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
     cd /tmp && curl -fsSL ${CURL_RETRY_OPTS} "https://github.com/elFarto/nvidia-vaapi-driver/archive/v${NVIDIA_VAAPI_DRIVER_VERSION}.tar.gz" | tar -xzf - && mv -f nvidia-vaapi-driver* nvidia-vaapi-driver && cd nvidia-vaapi-driver && meson setup build && meson install -C build && rm -rf /tmp/*; fi && \
-    apt-get autoremove --purge -y && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
     echo "/usr/local/nvidia/lib" >> /etc/ld.so.conf.d/nvidia.conf && \
     echo "/usr/local/nvidia/lib64" >> /etc/ld.so.conf.d/nvidia.conf && \
@@ -376,8 +375,6 @@ RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
      apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*; fi
 
 # Steam (install as root during build; runs as non-root user at runtime)
-# Optional: install pkexec via policykit-1 by setting --build-arg INSTALL_POLKIT=true
-ARG INSTALL_POLKIT=false
 RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
     dpkg --add-architecture i386 && \
     apt-get update && apt-get install -y --no-install-recommends \
@@ -395,9 +392,6 @@ RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
         libcap2:i386 && \
     # Recommended for controller rules (udev) and desktop integration
     (apt-get update && apt-get install -y --no-install-recommends steam-devices) || true && \
-    if [ "$(echo ${INSTALL_POLKIT} | tr '[:upper:]' '[:lower:]')" = "true" ]; then \
-        apt-get update && apt-get install -y --no-install-recommends policykit-1; \
-    fi && \
     cd /tmp && curl -fsSL ${CURL_RETRY_OPTS} -o steam_latest.deb "https://repo.steampowered.com/steam/archive/stable/steam_latest.deb" && \
     apt-get update && apt-get install -y ./steam_latest.deb && \
     # Ensure the launcher package is present (some distros treat the .deb as a repo bootstrapper)
@@ -408,12 +402,12 @@ RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*; \
 fi
 
-# pkexec permissions (run outside INSTALL_POLKIT block; safe if pkexec is absent)
+# pkexec permissions (safe if pkexec is absent)
 RUN if [ -x /usr/bin/pkexec ]; then \
         ls -l /usr/bin/pkexec && \
         chmod u+s /usr/bin/pkexec || true; \
     else \
-        echo "pkexec not present (policykit-1 not installed)"; \
+        echo "pkexec not present"; \
     fi
 
 # Install latest Selkies (https://github.com/selkies-project/selkies) build, Python application, and web application, should be consistent with Selkies documentation
@@ -653,10 +647,12 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
 	    rm -rf /tmp/* || true
 
 # Copy scripts and configurations used to start the container with `--chown=1000:1000`
-COPY --chown=1000:1000 --chmod=0755 entrypoint.sh /etc/entrypoint.sh
-COPY --chown=1000:1000 --chmod=0755 selkies-gstreamer-entrypoint.sh /etc/selkies-gstreamer-entrypoint.sh
-COPY --chown=1000:1000 --chmod=0755 warplay-control-entrypoint.sh /etc/warplay-control-entrypoint.sh
-COPY --chown=1000:1000 --chmod=0755 supervisord.conf /etc/supervisord.conf
+COPY --chown=1000:1000 --chmod=0755 \
+    entrypoint.sh \
+    selkies-gstreamer-entrypoint.sh \
+    warplay-control-entrypoint.sh \
+    supervisord.conf \
+    /etc/
 
 SHELL ["/bin/sh", "-c"]
 
