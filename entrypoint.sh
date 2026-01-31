@@ -130,8 +130,10 @@ else
   /usr/bin/dbus-launch --exit-with-session /usr/bin/startplasma-x11 &
 fi
 
-# Start Fcitx input method framework
-/usr/bin/fcitx &
+# Start Fcitx input method framework (optional)
+if command -v fcitx >/dev/null 2>&1; then
+  /usr/bin/fcitx &
+fi
 
 # Add custom processes right below this line, or within `supervisord.conf` to perform service management similar to systemd
 

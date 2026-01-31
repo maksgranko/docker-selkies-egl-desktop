@@ -317,110 +317,25 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
     mkdir -pm755 /etc/apt/trusted.gpg.d && curl -fsSL ${CURL_RETRY_OPTS} "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x738BEB9321D1AAEC13EA9391AEBDF4819BE21867" | gpg --dearmor -o /etc/apt/trusted.gpg.d/mozillateam-ubuntu-ppa.gpg && \
     mkdir -pm755 /etc/apt/sources.list.d && echo "deb https://ppa.launchpadcontent.net/mozillateam/ppa/ubuntu $(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"') main" > "/etc/apt/sources.list.d/mozillateam-ubuntu-ppa-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').list" && \
     apt-get update && apt-get install --no-install-recommends -y \
-        kde-baseapps \
         plasma-desktop \
         plasma-workspace \
+        kwin-x11 \
+        dbus-x11 \
+        dolphin \
+        kio \
+        konsole \
+        systemsettings \
+        plasma-discover \
         adwaita-icon-theme-full \
-        appmenu-gtk3-module \
-        ark \
-        aspell \
-        aspell-en \
         breeze \
         breeze-cursor-theme \
         breeze-gtk-theme \
         breeze-icon-theme \
-        dbus-x11 \
-        debconf-kde-helper \
+        appmenu-gtk3-module \
+        qt5-gtk-platformtheme \
         desktop-file-utils \
-        dolphin \
-        dolphin-plugins \
-        enchant-2 \
-        fcitx \
-        fcitx-frontend-gtk2 \
-        fcitx-frontend-gtk3 \
-        fcitx-frontend-qt5 \
-        fcitx-module-dbus \
-        fcitx-module-kimpanel \
-        fcitx-module-lua \
-        fcitx-module-x11 \
-        fcitx-tools \
-        fcitx-hangul \
-        fcitx-libpinyin \
-        fcitx-m17n \
-        fcitx-mozc \
-        fcitx-sayura \
-        fcitx-unikey \
-        filelight \
-        frameworkintegration \
-        haveged \
-        hunspell \
-        im-config \
-        kwrite \
-        kcalc \
-        kcharselect \
-        kdeadmin \
-        kde-config-fcitx \
-        kde-config-gtk-style \
-        kde-config-gtk-style-preview \
-        kdeconnect \
-        kdegraphics-thumbnailers \
-        kde-spectacle \
-        kdf \
-        kdialog \
-        kfind \
-        kget \
-        khotkeys \
-        kimageformat-plugins \
-        kinfocenter \
-        kio \
-        kio-extras \
-        kmag \
-        kmenuedit \
-        kmix \
-        kmousetool \
-        kmouth \
-        ksshaskpass \
-        ktimer \
-        kwin-addons \
-        kwin-x11 \
         libdbusmenu-glib4 \
         libdbusmenu-gtk3-4 \
-        libgail-common \
-        libgdk-pixbuf2.0-bin \
-        libgtk2.0-bin \
-        libgtk-3-bin \
-        libkf5baloowidgets-bin \
-        libkf5dbusaddons-bin \
-        libkf5iconthemes-bin \
-        libkf5kdelibs4support5-bin \
-        libkf5khtml-bin \
-        libkf5parts-plugins \
-        libqt5multimedia5-plugins \
-        librsvg2-common \
-        media-player-info \
-        plasma-browser-integration \
-        plasma-calendar-addons \
-        plasma-dataengines-addons \
-        plasma-discover \
-        plasma-integration \
-        plasma-runners-addons \
-        plasma-widgets-addons \
-        qapt-deb-installer \
-        qml-module-org-kde-runnermodel \
-        qml-module-org-kde-qqc2desktopstyle \
-        qml-module-qtgraphicaleffects \
-        qml-module-qt-labs-platform \
-        qml-module-qtquick-xmllistmodel \
-        qt5-gtk-platformtheme \
-        qt5-image-formats-plugins \
-        qt5-style-plugins \
-        qtspeech5-flite-plugin \
-        qtvirtualkeyboard-plugin \
-        software-properties-qt \
-        sonnet-plugins \
-        sweeper \
-        systemsettings \
-        ubuntu-drivers-common \
         firefox \
         xdg-user-dirs \
         xdg-utils && \
@@ -462,18 +377,14 @@ ENV KWIN_EFFECTS_FORCE_ANIMATIONS=0
 ENV KWIN_EXPLICIT_SYNC=0
 ENV KWIN_X11_NO_SYNC_TO_VBLANK=1
 # Use sudoedit to change protected files instead of using sudo on kwrite
-ENV SUDO_EDITOR=kwrite
+ENV SUDO_EDITOR=vim
 # Enable AppImage execution in containers
 ENV APPIMAGE_EXTRACT_AND_RUN=1
-# Set input to fcitx
-ENV GTK_IM_MODULE=fcitx
-ENV QT_IM_MODULE=fcitx
-ENV XIM=fcitx
-ENV XMODIFIERS="@im=fcitx"
-
  
- # Lutris and Heroic Launcher (without Wine)
- RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+ 
+  
+  # Lutris and Heroic Launcher (without Wine)
+  RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
      LUTRIS_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/lutris/lutris/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
      cd /tmp && curl -o lutris.deb -fsSL ${CURL_RETRY_OPTS} "https://github.com/lutris/lutris/releases/download/v${LUTRIS_VERSION}/lutris_${LUTRIS_VERSION}_all.deb" && apt-get install --no-install-recommends -y ./lutris.deb && rm -f lutris.deb && \
      HEROIC_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/Heroic-Games-Launcher/HeroicGamesLauncher/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
