@@ -133,9 +133,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         x11-utils \
         x11-apps \
         xserver-xorg-input-all \
-        xserver-xorg-input-wacom \
         xserver-xorg-video-all \
-        xserver-xorg-video-intel \
         xserver-xorg-video-qxl \
         # NVIDIA driver installer dependencies
         libc6-dev \
@@ -188,14 +186,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     # Packages only meant for x86_64
     if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
     dpkg --add-architecture i386 && apt-get update && apt-get install --no-install-recommends -y \
-        intel-gpu-tools \
         nvtop \
-        va-driver-all \
-        i965-va-driver-shaders \
-        intel-media-va-driver-non-free \
-        va-driver-all:i386 \
-        i965-va-driver-shaders:i386 \
-        intel-media-va-driver-non-free:i386 \
         libva2:i386 \
         vdpau-driver-all:i386 \
         mesa-vulkan-drivers:i386 \
@@ -229,6 +220,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libgstreamer-plugins-bad1.0-dev && \
     NVIDIA_VAAPI_DRIVER_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/elFarto/nvidia-vaapi-driver/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
     cd /tmp && curl -fsSL ${CURL_RETRY_OPTS} "https://github.com/elFarto/nvidia-vaapi-driver/archive/v${NVIDIA_VAAPI_DRIVER_VERSION}.tar.gz" | tar -xzf - && mv -f nvidia-vaapi-driver* nvidia-vaapi-driver && cd nvidia-vaapi-driver && meson setup build && meson install -C build && rm -rf /tmp/*; fi && \
+    apt-get autoremove --purge -y && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
     echo "/usr/local/nvidia/lib" >> /etc/ld.so.conf.d/nvidia.conf && \
     echo "/usr/local/nvidia/lib64" >> /etc/ld.so.conf.d/nvidia.conf && \
