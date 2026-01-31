@@ -29,6 +29,8 @@ chown -f "$(id -nu):$(id -ng)" ~ || sudo-root chown -f "$(id -nu):$(id -ng)" ~ |
 # Remove directories to make sure the desktop environment starts (skip for host-X mode)
 if [ "${MODE}" != "secondary" ]; then
   rm -rf /tmp/.X* ~/.cache || echo 'Failed to clean X11 paths'
+  # Re-create required socket directories after cleanup.
+  sudo-root mkdir -pm1777 /tmp/.X11-unix /tmp/.ICE-unix 2>/dev/null || mkdir -pm1777 /tmp/.X11-unix /tmp/.ICE-unix 2>/dev/null || true
 fi
 # Change time zone from environment variable
 ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime && echo "${TZ}" | tee /etc/timezone > /dev/null || echo 'Failed to set timezone'
@@ -112,6 +114,24 @@ echo 'Waiting for X Socket' && until [ -S "/tmp/.X11-unix/X${DISPLAY#*:}" ]; do 
 # Resize the screen to the provided size
 if [ "${MODE}" != "secondary" ]; then
   /usr/local/bin/selkies-gstreamer-resize "${DISPLAY_SIZEW}x${DISPLAY_SIZEH}"
+fi
+
+# Force a built-in wallpaper provider (solid color) to avoid warnings if wallpapers were removed from the image.
+mkdir -p "${HOME}/.config" || true
+if [ ! -f "${HOME}/.config/plasma-org.kde.plasma.desktop-appletsrc" ]; then
+  cat >"${HOME}/.config/plasma-org.kde.plasma.desktop-appletsrc" <<'EOF'
+[Containments][1]
+activityId=
+formfactor=0
+immutability=1
+lastScreen=0
+location=0
+plugin=org.kde.desktopcontainment
+wallpaperplugin=org.kde.color
+
+[Containments][1][Wallpaper][org.kde.color][General]
+Color=0,0,0
+EOF
 fi
 
 # Use VirtualGL to run the KDE desktop environment with OpenGL if the GPU is available, otherwise use OpenGL with llvmpipe

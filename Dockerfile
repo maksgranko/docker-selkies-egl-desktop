@@ -161,6 +161,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libglu1 \
         libsm6 \
         netcat-openbsd && \
+    rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* || true && \
     # PipeWire and WirePlumber
     mkdir -pm755 /etc/apt/trusted.gpg.d && curl -fsSL ${CURL_RETRY_OPTS} "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xFC43B7352BCC0EC8AF2EEB8B25088A0359807596" | gpg --dearmor -o /etc/apt/trusted.gpg.d/pipewire-debian-ubuntu-pipewire-upstream.gpg && \
     mkdir -pm755 /etc/apt/sources.list.d && echo "deb https://ppa.launchpadcontent.net/pipewire-debian/pipewire-upstream/ubuntu $(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"') main" > "/etc/apt/sources.list.d/pipewire-debian-ubuntu-pipewire-upstream-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').list" && \
@@ -314,7 +315,7 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
         kio \
         konsole \
         plasma-discover \
-        adwaita-icon-theme-full \
+        adwaita-icon-theme \
         breeze \
         breeze-cursor-theme \
         breeze-gtk-theme \
@@ -330,6 +331,7 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
     # Ensure Firefox as the default web browser
     xdg-settings set default-web-browser firefox.desktop && \
     update-alternatives --set x-www-browser /usr/bin/firefox && \
+    rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* || true && \
     rm -rf /usr/share/wallpapers /usr/share/backgrounds || true && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/* && \
     # Fix KDE startup permissions issues in containers
