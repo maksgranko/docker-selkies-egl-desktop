@@ -416,6 +416,20 @@ RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*; \
 fi
 
+# Steam (build-time prewarm to reduce first-run setup; disable with --build-arg STEAM_PREWARM=false)
+ARG STEAM_PREWARM=true
+RUN if [ "$(dpkg --print-architecture)" = "amd64" ] && [ "${STEAM_PREWARM}" = "true" ]; then \
+     export HOME="/home/ubuntu" && \
+     export XDG_RUNTIME_DIR="/tmp/runtime-ubuntu" && \
+     mkdir -p "${XDG_RUNTIME_DIR}" && chmod 0700 "${XDG_RUNTIME_DIR}" && \
+     timeout --signal=TERM --kill-after=10s 180s \
+       dbus-run-session -- \
+       xvfb-run -a -s "-screen 0 1280x720x24" \
+       env LIBGL_ALWAYS_SOFTWARE=1 __GLX_VENDOR_LIBRARY_NAME=mesa STEAM_DISABLE_GPU=1 \
+         steam -silent >/tmp/steam-prewarm.log 2>&1 || true && \
+     rm -rf "${XDG_RUNTIME_DIR}"; \
+ fi
+
 # pkexec permissions (safe if pkexec is absent)
 RUN if [ -x /usr/bin/pkexec ]; then \
         ls -l /usr/bin/pkexec && \
