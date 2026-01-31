@@ -272,12 +272,9 @@ ENV DISPLAY_REFRESH=60
 ENV DISPLAY_DPI=96
 ENV DISPLAY_CDEPTH=24
 ENV VGL_DISPLAY=egl
-ENV KASMVNC_ENABLE=false
 ENV SELKIES_ENCODER=nvh264enc
 ENV SELKIES_ENABLE_RESIZE=false
 ENV SELKIES_ENABLE_BASIC_AUTH=true
-ARG INSTALL_KASMVNC=true
-ENV INSTALL_KASMVNC=${INSTALL_KASMVNC}
 
 # Install Xvfb
 RUN apt-get update && apt-get install --no-install-recommends -y \
@@ -318,7 +315,6 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
         dolphin \
         kio \
         konsole \
-        systemsettings \
         plasma-discover \
         adwaita-icon-theme-full \
         breeze \
@@ -374,11 +370,9 @@ ENV KWIN_X11_NO_SYNC_TO_VBLANK=1
 ENV SUDO_EDITOR=vim
 # Enable AppImage execution in containers
 ENV APPIMAGE_EXTRACT_AND_RUN=1
- 
- 
-  
-  # Lutris and Heroic Launcher (without Wine)
-  RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+
+# Lutris and Heroic Launcher (without Wine)
+RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
      add-apt-repository -y universe && \
      add-apt-repository -y multiverse && \
      apt-get update && \
@@ -387,7 +381,6 @@ ENV APPIMAGE_EXTRACT_AND_RUN=1
      HEROIC_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/Heroic-Games-Launcher/HeroicGamesLauncher/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
      cd /tmp && curl -o heroic_launcher.deb -fsSL ${CURL_RETRY_OPTS} "https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/v${HEROIC_VERSION}/Heroic-${HEROIC_VERSION}-linux-$(dpkg --print-architecture).deb" && apt-get install --no-install-recommends -y ./heroic_launcher.deb && rm -f heroic_launcher.deb && \
      apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*; fi
-
 
 # Steam (install as root during build; runs as non-root user at runtime)
 # Optional: install pkexec via policykit-1 by setting --build-arg INSTALL_POLKIT=true
@@ -429,7 +422,6 @@ RUN if [ -x /usr/bin/pkexec ]; then \
     else \
         echo "pkexec not present (policykit-1 not installed)"; \
     fi
-
 
 # Install latest Selkies (https://github.com/selkies-project/selkies) build, Python application, and web application, should be consistent with Selkies documentation
 ARG PIP_BREAK_SYSTEM_PACKAGES=1
@@ -666,25 +658,10 @@ RUN --mount=type=bind,source=install_to_docker,target=/tmp/install_to_docker,ro 
 	    rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /var/tmp/*; \
 	    rm -rf /tmp/* || true
 
-#
-# Install KasmVNC web interface; RustDesk removed
-RUN if [ "$(echo ${INSTALL_KASMVNC} | tr '[:upper:]' '[:lower:]')" = "true" ]; then \
-        KASMVNC_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/kasmtech/KasmVNC/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
-        cd /tmp && curl -o kasmvncserver.deb -fsSL ${CURL_RETRY_OPTS} "https://github.com/kasmtech/KasmVNC/releases/download/v${KASMVNC_VERSION}/kasmvncserver_$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '"')_${KASMVNC_VERSION}_$(dpkg --print-architecture).deb" && \
-        apt-get update && apt-get install --no-install-recommends -y ./kasmvncserver.deb libdatetime-perl && rm -f kasmvncserver.deb && \
-        YQ_VERSION="$(curl -fsSL ${CURL_RETRY_OPTS} "https://api.github.com/repos/mikefarah/yq/releases/latest" | jq -r '.tag_name' | sed 's/[^0-9\.\-]*//g')" && \
-        cd /tmp && curl -o yq -fsSL ${CURL_RETRY_OPTS} "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_$(dpkg --print-architecture)" && \
-        install ./yq /usr/bin/ && rm -f yq && \
-        apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*; \
-    else \
-        echo "Skipping KasmVNC install (INSTALL_KASMVNC=${INSTALL_KASMVNC})"; \
-    fi
-
 # Copy scripts and configurations used to start the container with `--chown=1000:1000`
 COPY --chown=1000:1000 --chmod=0755 entrypoint.sh /etc/entrypoint.sh
 COPY --chown=1000:1000 --chmod=0755 selkies-gstreamer-entrypoint.sh /etc/selkies-gstreamer-entrypoint.sh
 COPY --chown=1000:1000 --chmod=0755 warplay-control-entrypoint.sh /etc/warplay-control-entrypoint.sh
-COPY --chown=1000:1000 --chmod=0755 kasmvnc-entrypoint.sh /etc/kasmvnc-entrypoint.sh
 COPY --chown=1000:1000 --chmod=0755 supervisord.conf /etc/supervisord.conf
 
 SHELL ["/bin/sh", "-c"]
