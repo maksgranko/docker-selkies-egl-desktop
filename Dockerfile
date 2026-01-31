@@ -391,11 +391,11 @@ RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
         libudev1:i386 \
         libcap2:i386 && \
     # Recommended for controller rules (udev) and desktop integration
-    (apt-get update && apt-get install -y --no-install-recommends steam-devices) || true && \
+    (apt-get install -y --no-install-recommends steam-devices) || true && \
     cd /tmp && curl -fsSL ${CURL_RETRY_OPTS} -o steam_latest.deb "https://repo.steampowered.com/steam/archive/stable/steam_latest.deb" && \
-    apt-get update && apt-get install -y ./steam_latest.deb && \
+    apt-get install -y ./steam_latest.deb && \
     # Ensure the launcher package is present (some distros treat the .deb as a repo bootstrapper)
-    (apt-get update && apt-get install -y --no-install-recommends steam-launcher) || true && \
+    (apt-get install -y --no-install-recommends steam-launcher) || true && \
     # Hard check: fail the build if steam isn't available after install
     command -v steam >/dev/null 2>&1 && \
     rm -f /tmp/steam_latest.deb && \
