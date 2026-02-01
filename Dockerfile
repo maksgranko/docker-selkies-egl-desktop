@@ -425,13 +425,17 @@ RUN if [ "$(dpkg --print-architecture)" = "amd64" ] && [ "${STEAM_PREWARM}" = "t
      mkdir -p "${XDG_RUNTIME_DIR}" && chmod 0700 "${XDG_RUNTIME_DIR}" && \
      rm -f /tmp/steam-prewarm.log && \
      for pass in 1 2; do \
+       echo "steam-prewarm pass=${pass} start $(date -Iseconds)" >>/tmp/steam-prewarm.log; \
        timeout --signal=TERM --kill-after=15s 300s \
          dbus-run-session -- \
          xvfb-run -a -s "-screen 0 1280x720x24" \
          env LIBGL_ALWAYS_SOFTWARE=1 __GLX_VENDOR_LIBRARY_NAME=mesa STEAM_DISABLE_GPU=1 \
-           steam -silent >>/tmp/steam-prewarm.log 2>&1 || true; \
+           steam -silent +quit >>/tmp/steam-prewarm.log 2>&1 || true; \
+       du -sh "${HOME}/.steam" "${HOME}/.local/share/Steam" >>/tmp/steam-prewarm.log 2>&1 || true; \
+       ls -la "${HOME}/.local/share" >>/tmp/steam-prewarm.log 2>&1 || true; \
        sleep 2; \
      done && \
+     touch "${HOME}/.steam-prewarm.done" && \
      rm -rf "${XDG_RUNTIME_DIR}"; \
  fi
 
